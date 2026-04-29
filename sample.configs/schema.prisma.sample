@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+    provider = "prisma-client"
+}
+
+datasource db {
+    provider = "mysql"
+}
+
+model MainItem {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 菜品名称
+    name String @db.VarChar(63)
+
+    /// 菜品介绍
+    description String? @db.Text
+
+    /// 菜品单价
+    priceCents Int
+
+    /// 图片源
+    imageUrl String? @db.VarChar(255)
+
+    /// 是否可用
+    isAvailable Boolean @default(true)
+
+    /// 创建时间
+    createdAt DateTime @default(now())
+
+    @@map("general_items")
+}
+
+model SubItem {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 子项名称
+    name String @db.VarChar(63)
+
+    /// 子项单价
+    priceCents Int
+
+    /// 创建时间
+    createdAt DateTime @default(now())
+
+    @@map("sub_items")
+}
