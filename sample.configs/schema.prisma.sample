@@ -4,7 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-    provider = "prisma-client"
+    provider = "prisma-client-js"
 }
 
 datasource db {
@@ -50,4 +50,62 @@ model SubItem {
     createdAt DateTime @default(now())
 
     @@map("sub_items")
+}
+
+model User {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 邮箱（登录用）
+    email String @unique @db.VarChar(255)
+
+    /// 密码（加密后）
+    passwordHash String @db.VarChar(255)
+
+    /// 昵称
+    name String @db.VarChar(100)
+
+    /// 手机号
+    phone String @db.VarChar(20)
+
+    /// 备用手机号
+    phone2 String? @db.VarChar(20)
+
+    /// 地址
+    addresses Address[]
+
+    /// 是否激活
+    isActive Boolean @default(true)
+
+    /// 创建时间
+    createdAt DateTime @default(now())
+
+    /// 更新时间
+    updatedAt DateTime @updatedAt
+
+    @@map("users")
+}
+
+model Address {
+    id Int @id @default(autoincrement())
+
+    userId Int
+    user User @relation(fields: [userId], references: [id])
+
+    /// 用户看到的地址
+    fullAddress String @db.VarChar(255)
+
+    /// Google 唯一ID
+    googlePlaceId String @db.VarChar(255)
+
+    /// 经纬度
+    latitude Float
+    longitude Float
+
+    /// 是否默认
+    isDefault Boolean @default(false)
+
+    createdAt DateTime @default(now())
+
+    @@map("addresses")
 }
