@@ -1,10 +1,9 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 /**
- * 把 cents 转换成价格显示
- *
- * 1299 -> $12.99
+ * 把 cents 转换成价格显示。
  */
 function formatPrice(priceCents: number) {
     return `$${(priceCents / 100).toFixed(2)}`;
@@ -21,33 +20,15 @@ function formatPrice(priceCents: number) {
  * 2. 从 menu_items 读取真正菜单
  * 3. 显示基础菜品信息
  * 4. 显示每个菜单项绑定的选项组
- * 5. 显示每个选项组里的选项和价格
+ * 5. 提供进入详情页和购物车的入口
  *
- * 注意：
- * 现在还不做购物车。
- * 当前目标是确认后台配置的数据能正确显示到顾客菜单页。
+ * 为什么这样做：
+ * 顾客端必须以 menu_items 为中心读取数据，
+ * 不能直接把 general_items 当成最终菜单。
  */
 export default async function MenuPage() {
-    /**
-     * 1. 读取当前登录状态
-     */
     const session = await auth();
 
-    /**
-     * 2. 读取真正菜单项
-     *
-     * 现在不直接读取 general_items。
-     *
-     * 读取逻辑：
-     * - menuItem.isActive = true
-     * - mainItem.isAvailable = true
-     *
-     * include:
-     * - mainItem：基础菜品信息
-     * - optionGroups：这个菜单项绑定的选项组
-     * - optionGroup.options：选项组里的具体选项
-     * - option.subItem：选项名称
-     */
     const menuItems = await prisma.menuItem.findMany({
         where: {
             isActive: true,
@@ -102,9 +83,6 @@ export default async function MenuPage() {
 
     return (
         <main style={{ maxWidth: 1000, margin: "0 auto", padding: 24 }}>
-            {/**
-             * 顶部用户状态栏
-             */}
             <section
                 style={{
                     display: "flex",
@@ -125,11 +103,11 @@ export default async function MenuPage() {
                         </p>
 
                         <div style={{ display: "flex", gap: 10 }}>
-                            <a href="/account">账户</a>
+                            <Link href="/cart">购物车</Link>
+                            <Link href="/account">账户</Link>
 
-                            {(session.user as any).role === "ADMIN" && (
-                                <a href="/admin">管理后台</a>
-                            )}
+                            {(session.user as { role?: string }).role ===
+                                "ADMIN" && <Link href="/admin">管理后台</Link>}
                         </div>
                     </>
                 ) : (
@@ -139,8 +117,9 @@ export default async function MenuPage() {
                         </p>
 
                         <div style={{ display: "flex", gap: 10 }}>
-                            <a href="/login">登录</a>
-                            <a href="/register">注册</a>
+                            <Link href="/cart">购物车</Link>
+                            <Link href="/login">登录</Link>
+                            <Link href="/register">注册</Link>
                         </div>
                     </>
                 )}
@@ -362,14 +341,7 @@ export default async function MenuPage() {
                                         </div>
                                     )}
 
-                                    {/**
-                                     * 先进入单个菜品详情页。
-                                     *
-                                     * 为什么这样改：
-                                     * 后续购物车的选择逻辑会依赖 /menu/[id]，
-                                     * 所以当前列表页先把入口接过去。
-                                     */}
-                                    <a
+                                    <Link
                                         href={`/menu/${menuItem.id}`}
                                         style={{
                                             display: "block",
@@ -385,7 +357,7 @@ export default async function MenuPage() {
                                         }}
                                     >
                                         选择 / View Details
-                                    </a>
+                                    </Link>
                                 </article>
                             );
                         })}
