@@ -65,7 +65,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 }
 
                 /**
-                 * 5. 校验密码
+                 * 5. 如果用户被禁用，不允许登录
+                 */
+                if (!user.isActive) {
+                    return null;
+                }
+
+                /**
+                 * 6. 校验密码
                  *
                  * password：用户输入的明文密码
                  * user.passwordHash：数据库里的 bcrypt hash
@@ -75,9 +82,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     user.passwordHash
                 );
 
-                /**
-                 * 6. 密码错误，登录失败
-                 */
                 if (!isValid) {
                     return null;
                 }
@@ -95,6 +99,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     id: String(user.id),
                     email: user.email,
                     name: user.name,
+                    role: user.role,
                 };
             },
         }),
@@ -126,6 +131,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.id = user.id;
                 token.email = user.email;
                 token.name = user.name;
+                token.role = (user as any).role;
             }
 
             return token;
@@ -141,6 +147,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             if (session.user) {
                 session.user.email = token.email as string;
                 session.user.name = token.name as string;
+
+                /**
+                 * NextAuth 默认类型里没有 id 和 role，
+                 * 所以这里先用 as any。
+                 *
+                 * 后面如果你想更规范，
+                 * 可以再做 next-auth.d.ts 类型扩展。
+                 */
+                (session.user as any).id = token.id as string;
+                (session.user as any).role = token.role as string;
             }
 
             return session;
