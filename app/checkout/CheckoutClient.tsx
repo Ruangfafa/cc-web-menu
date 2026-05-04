@@ -1,6 +1,10 @@
 "use client";
 
 import { clearCart, readCart, subscribeCart } from "@/lib/cart";
+import {
+    buildLocalDateTimeFromDateKey,
+    formatMenuDate,
+} from "@/lib/menu-date";
 import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,27 +37,6 @@ function formatPrice(priceCents: number) {
     return `$${(priceCents / 100).toFixed(2)}`;
 }
 
-function toDateSelectValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-const pickupDateOptions = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() + index);
-
-    return {
-        value: toDateSelectValue(date),
-        label: date.toLocaleDateString(undefined, {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-        }),
-    };
-});
 const pickupHourOptions = Array.from({ length: 24 }, (_, hour) =>
     String(hour).padStart(2, "0")
 );
@@ -94,7 +77,6 @@ export default function CheckoutClient({
     const [guestName, setGuestName] = useState("");
     const [guestPhone, setGuestPhone] = useState("");
     const [guestAddress, setGuestAddress] = useState("");
-    const [pickupDate, setPickupDate] = useState("");
     const [pickupHour, setPickupHour] = useState("");
     const [pickupMinute, setPickupMinute] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -108,20 +90,30 @@ export default function CheckoutClient({
     });
 
     const hasCartItems = cartItems.length > 0;
+    const cartServiceDates = [
+        ...new Set(cartItems.map((item) => item.serviceDate).filter(Boolean)),
+    ];
+    const cartServiceDate =
+        cartServiceDates.length === 1 ? cartServiceDates[0] || "" : "";
+    const cartHasSingleServiceDate =
+        cartServiceDates.length === 1 &&
+        cartItems.every((item) => item.serviceDate === cartServiceDates[0]);
     const useSiteAddressMode = deliveryMode === DeliveryAddressMode.SITE_ADDRESS;
     const hasSavedAddress = Boolean(userProfile?.addresses.length);
     const hasSiteAddress = siteAddresses.length > 0;
     const hasPickupTime =
         !requirePickupTime ||
-        (Boolean(pickupDate) && Boolean(pickupHour) && Boolean(pickupMinute));
+        (Boolean(cartServiceDate) && Boolean(pickupHour) && Boolean(pickupMinute));
 
     const canSubmitOrder = isLoggedIn
         ? hasCartItems &&
+          cartHasSingleServiceDate &&
           hasPickupTime &&
           (useSiteAddressMode
               ? hasSiteAddress && Boolean(selectedAddressId)
               : hasSavedAddress && Boolean(selectedAddressId))
         : hasCartItems &&
+          cartHasSingleServiceDate &&
           hasPickupTime &&
           guestName.trim().length > 0 &&
           guestPhone.trim().length > 0 &&
@@ -134,14 +126,12 @@ export default function CheckoutClient({
         setSubmitting(true);
 
         const pickupTime =
-            pickupDate && pickupHour && pickupMinute
-                ? new Date(
-                      Number(pickupDate.slice(0, 4)),
-                      Number(pickupDate.slice(5, 7)) - 1,
-                      Number(pickupDate.slice(8, 10)),
-                      Number(pickupHour),
-                      Number(pickupMinute)
-                  ).toISOString()
+            pickupHour && pickupMinute
+                ? buildLocalDateTimeFromDateKey(
+                      cartServiceDate,
+                      pickupHour,
+                      pickupMinute
+                  )?.toISOString() || null
                 : null;
 
         const response = await fetch("/api/checkout", {
@@ -445,6 +435,12 @@ export default function CheckoutClient({
                     >
                         <h3>Pickup Time</h3>
 
+                        {cartServiceDate && (
+                            <p style={{ color: "#666" }}>
+                                Pickup date: {formatMenuDate(cartServiceDate)}
+                            </p>
+                        )}
+
                         <div
                             style={{
                                 display: "grid",
@@ -453,34 +449,6 @@ export default function CheckoutClient({
                                 gap: 12,
                             }}
                         >
-                            <label htmlFor="pickupDate">
-                                Date
-                                <select
-                                    id="pickupDate"
-                                    value={pickupDate}
-                                    onChange={(event) =>
-                                        setPickupDate(event.target.value)
-                                    }
-                                    required
-                                    style={{
-                                        display: "block",
-                                        width: "100%",
-                                        padding: 8,
-                                        marginTop: 4,
-                                    }}
-                                >
-                                    <option value="">Select date</option>
-                                    {pickupDateOptions.map((option) => (
-                                        <option
-                                            key={option.value}
-                                            value={option.value}
-                                        >
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
                             <label htmlFor="pickupHour">
                                 Hour
                                 <select
@@ -533,7 +501,7 @@ export default function CheckoutClient({
                         </div>
 
                         <p style={{ color: "#666" }}>
-                            Pickup time is required for this order.
+                            Pickup hour and minute are required for this order.
                         </p>
                     </section>
                 )}
@@ -588,6 +556,15 @@ export default function CheckoutClient({
                 }}
             >
                 <h2 style={{ marginTop: 0 }}>Order Summary</h2>
+
+                {hasCartItems && (
+                    <p style={{ color: "#666", marginTop: 0 }}>
+                        Menu date:{" "}
+                        {cartHasSingleServiceDate
+                            ? formatMenuDate(cartServiceDate)
+                            : "Mixed dates are not allowed"}
+                    </p>
+                )}
 
                 {!hasCartItems ? (
                     <>

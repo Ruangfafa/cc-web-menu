@@ -136,8 +136,9 @@ export default async function AdminDeliveryPage() {
                     </label>
 
                     <p style={{ color: "#666" }}>
-                        When enabled, customers must select a pickup date, hour,
-                        and minute before placing an order.
+                        When enabled, customers must select a pickup hour and
+                        minute before placing an order. The date comes from the
+                        selected menu day.
                     </p>
 
                     <button type="submit">Save Pickup Time Setting</button>

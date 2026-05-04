@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { formatMenuDate, todayDateKey, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
@@ -29,6 +30,7 @@ function formatPrice(priceCents: number) {
  */
 export default async function AdminMenuPage() {
     const session = await auth();
+    const todayKey = todayDateKey();
 
     if (!session?.user) {
         redirect("/login");
@@ -57,6 +59,9 @@ export default async function AdminMenuPage() {
      */
     const menuItems = await prisma.menuItem.findMany({
         orderBy: [
+            {
+                availableDate: "asc",
+            },
             {
                 sortOrder: "asc",
             },
@@ -170,6 +175,24 @@ export default async function AdminMenuPage() {
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
+                            <label htmlFor="availableDate">Menu date</label>
+
+                            <input
+                                id="availableDate"
+                                name="availableDate"
+                                type="date"
+                                defaultValue={todayKey}
+                                required
+                                style={{
+                                    display: "block",
+                                    width: "100%",
+                                    padding: 8,
+                                    marginTop: 4,
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
                             <label htmlFor="sortOrder">显示顺序</label>
 
                             <input
@@ -241,6 +264,13 @@ export default async function AdminMenuPage() {
                                     <p>
                                         <strong>基础价格：</strong>
                                         {formatPrice(item.mainItem.priceCents)}
+                                    </p>
+
+                                    <p>
+                                        <strong>Menu date: </strong>
+                                        {formatMenuDate(
+                                            toDateKey(item.availableDate)
+                                        )}
                                     </p>
 
                                     <p>

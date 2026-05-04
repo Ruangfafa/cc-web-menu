@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { parseDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
@@ -40,6 +41,8 @@ export async function createMenuItem(formData: FormData) {
     ).trim();
     const sortOrder = Number(formData.get("sortOrder") || 0);
     const isActive = formData.get("isActive") === "on";
+    const availableDateValue = String(formData.get("availableDate") || "");
+    const availableDate = parseDateKey(availableDateValue);
 
     if (!Number.isInteger(mainItemId) || mainItemId <= 0) {
         throw new Error("请选择一个基础菜品");
@@ -47,6 +50,10 @@ export async function createMenuItem(formData: FormData) {
 
     if (!Number.isInteger(sortOrder)) {
         throw new Error("排序值不合法");
+    }
+
+    if (!availableDate) {
+        throw new Error("Invalid menu date.");
     }
 
     /**
@@ -74,6 +81,7 @@ export async function createMenuItem(formData: FormData) {
             mainItemId,
             displayName: displayName || null,
             displayDescription: displayDescription || null,
+            availableDate,
             sortOrder,
             isActive,
         },

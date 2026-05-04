@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -118,6 +119,20 @@ export default async function AdminOrdersPage({
                                         >
                                             Pickup:{" "}
                                             {order.pickupTime.toLocaleString()}
+                                        </p>
+                                    )}
+
+                                    {order.serviceDate && (
+                                        <p
+                                            style={{
+                                                margin: "0 0 8px",
+                                                color: "#666",
+                                            }}
+                                        >
+                                            Menu date:{" "}
+                                            {formatMenuDate(
+                                                toDateKey(order.serviceDate)
+                                            )}
                                         </p>
                                     )}
 

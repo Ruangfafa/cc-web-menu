@@ -38,6 +38,7 @@ export type CartItemSelectedOption = {
  */
 export type CartItem = {
     cartItemId: string;
+    serviceDate: string;
     menuItemId: number;
     mainItemId: number;
     nameSnapshot: string;
@@ -115,7 +116,35 @@ export function writeCart(cartItems: CartItem[]) {
  */
 export function addCartItem(cartItem: CartItem) {
     const currentCart = readCart();
+
+    if (currentCart.some((item) => !item.serviceDate)) {
+        return {
+            success: false,
+            error: "Your cart contains older items without a menu date. Please clear the cart before adding new items.",
+        };
+    }
+
+    const existingServiceDate = currentCart.find(
+        (item) => item.serviceDate
+    )?.serviceDate;
+
+    if (
+        existingServiceDate &&
+        cartItem.serviceDate &&
+        existingServiceDate !== cartItem.serviceDate
+    ) {
+        return {
+            success: false,
+            error: `Your cart already contains items for ${existingServiceDate}. Please checkout or clear the cart before adding ${cartItem.serviceDate}.`,
+        };
+    }
+
     writeCart([...currentCart, cartItem]);
+
+    return {
+        success: true,
+        error: "",
+    };
 }
 
 /**

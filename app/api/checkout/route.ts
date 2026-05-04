@@ -1,5 +1,11 @@
 import { auth } from "@/auth";
 import type { CartItem } from "@/lib/cart";
+import {
+    parseDateKey,
+    todayDateKey,
+    toDateKey,
+    toLocalDateKey,
+} from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { DeliveryAddressMode } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -77,6 +83,41 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Cart is empty." }, { status: 400 });
         }
 
+        const cartServiceDates = [
+            ...new Set(cartItems.map((item) => item.serviceDate).filter(Boolean)),
+        ];
+
+        if (
+            cartServiceDates.length !== 1 ||
+            cartItems.some((item) => item.serviceDate !== cartServiceDates[0])
+        ) {
+            return NextResponse.json(
+                { error: "One order can only contain menu items for one day." },
+                { status: 400 }
+            );
+        }
+
+        const serviceDateKey = cartServiceDates[0] || "";
+        const serviceDate = parseDateKey(serviceDateKey);
+        const todayKey = todayDateKey();
+
+        if (!serviceDate || serviceDateKey < todayKey) {
+            return NextResponse.json(
+                { error: "Invalid menu date in cart." },
+                { status: 400 }
+            );
+        }
+
+        if (
+            pickupTimeValue &&
+            toLocalDateKey(pickupTimeValue) !== serviceDateKey
+        ) {
+            return NextResponse.json(
+                { error: "Pickup time must be on the selected menu date." },
+                { status: 400 }
+            );
+        }
+
         const uniqueMenuItemIds = [...new Set(cartItems.map((item) => item.menuItemId))];
 
         const menuItems = await prisma.menuItem.findMany({
@@ -127,6 +168,15 @@ export async function POST(request: Request) {
                 return NextResponse.json(
                     {
                         error: `Menu item ${cartItem.menuItemId} is unavailable.`,
+                    },
+                    { status: 400 }
+                );
+            }
+
+            if (toDateKey(menuItem.availableDate) !== serviceDateKey) {
+                return NextResponse.json(
+                    {
+                        error: `Menu item ${cartItem.menuItemId} is not available for ${serviceDateKey}.`,
                     },
                     { status: 400 }
                 );
@@ -339,6 +389,7 @@ export async function POST(request: Request) {
                 guestName,
                 guestPhone,
                 guestAddress,
+                serviceDate,
                 pickupTime: pickupTimeValue,
                 subtotalCents,
                 taxCents,

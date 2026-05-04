@@ -68,8 +68,10 @@ function buildInitialSelections(
 
 export default function MenuItemSelectionClient({
     menuItem,
+    serviceDate,
 }: {
     menuItem: MenuItemSelectionData;
+    serviceDate: string;
 }) {
     const [selectedOptions, setSelectedOptions] = useState<SelectedOptionsState>(
         () => buildInitialSelections(menuItem)
@@ -177,6 +179,7 @@ export default function MenuItemSelectionClient({
 
         const cartItem: CartItem = {
             cartItemId: crypto.randomUUID(),
+            serviceDate,
             menuItemId: menuItem.id,
             mainItemId: menuItem.mainItem.id,
             nameSnapshot,
@@ -193,8 +196,14 @@ export default function MenuItemSelectionClient({
             totalPriceCentsSnapshot: totalPriceCents,
         };
 
-        addCartItem(cartItem);
-        setAddToCartMessage("Added to cart.");
+        const result = addCartItem(cartItem);
+
+        if (!result.success) {
+            setAddToCartMessage(result.error);
+            return;
+        }
+
+        setAddToCartMessage(`Added to cart for ${serviceDate}.`);
     }
 
     return (
@@ -213,7 +222,8 @@ export default function MenuItemSelectionClient({
                 </p>
 
                 <p style={{ margin: 0, color: "#666" }}>
-                    Base {formatPrice(menuItem.mainItem.priceCents)}, options{" "}
+                    Menu date {serviceDate}. Base{" "}
+                    {formatPrice(menuItem.mainItem.priceCents)}, options{" "}
                     {formatPrice(
                         totalPriceCents - menuItem.mainItem.priceCents
                     )}

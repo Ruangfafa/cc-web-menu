@@ -1,6 +1,7 @@
 "use server";
 
 import { auth, signOut } from "@/auth";
+import { buildLocalDateTimeFromDateKey, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { OrderFulfillmentStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
@@ -257,7 +258,6 @@ export async function updateOrderPickupTime(formData: FormData) {
     const user = await requireUser();
 
     const orderId = Number(formData.get("orderId"));
-    const pickupDate = String(formData.get("pickupDate") || "");
     const pickupHour = String(formData.get("pickupHour") || "");
     const pickupMinute = String(formData.get("pickupMinute") || "");
 
@@ -265,19 +265,38 @@ export async function updateOrderPickupTime(formData: FormData) {
         throw new Error("Invalid order id.");
     }
 
-    if (!pickupDate || !pickupHour || !pickupMinute) {
-        throw new Error("Pickup date, hour, and minute are required.");
+    if (!pickupHour || !pickupMinute) {
+        throw new Error("Pickup hour and minute are required.");
     }
 
-    const pickupTime = new Date(
-        Number(pickupDate.slice(0, 4)),
-        Number(pickupDate.slice(5, 7)) - 1,
-        Number(pickupDate.slice(8, 10)),
-        Number(pickupHour),
-        Number(pickupMinute)
+    const order = await prisma.order.findFirst({
+        where: {
+            id: orderId,
+            userId: user.id,
+        },
+        select: {
+            serviceDate: true,
+            pickupTime: true,
+        },
+    });
+
+    if (!order) {
+        redirect("/account?orderAction=unavailable");
+    }
+
+    const pickupDate = order.serviceDate || order.pickupTime;
+
+    if (!pickupDate) {
+        throw new Error("Order menu date is missing.");
+    }
+
+    const pickupTime = buildLocalDateTimeFromDateKey(
+        toDateKey(pickupDate),
+        pickupHour,
+        pickupMinute
     );
 
-    if (Number.isNaN(pickupTime.getTime())) {
+    if (!pickupTime || Number.isNaN(pickupTime.getTime())) {
         throw new Error("Invalid pickup time.");
     }
 

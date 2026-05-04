@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { addOptionGroupToMenuItem } from "./actions";
@@ -137,6 +138,11 @@ export default async function AdminMenuItemDetailPage({
                 <p>
                     <strong>基础价格：</strong>
                     {formatPrice(menuItem.mainItem.priceCents)}
+                </p>
+
+                <p>
+                    <strong>Menu date: </strong>
+                    {formatMenuDate(toDateKey(menuItem.availableDate))}
                 </p>
 
                 <p>

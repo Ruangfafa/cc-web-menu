@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -27,27 +28,6 @@ function formatStatus(status: string) {
         .join(" ");
 }
 
-function toDateSelectValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-const pickupDateOptions = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() + index);
-
-    return {
-        value: toDateSelectValue(date),
-        label: date.toLocaleDateString(undefined, {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-        }),
-    };
-});
 const pickupHourOptions = Array.from({ length: 24 }, (_, hour) =>
     String(hour).padStart(2, "0")
 );
@@ -417,9 +397,6 @@ export default async function AccountPage({
                             const canEditOrder = canCustomerEditOrder(
                                 order.fulfillmentStatus
                             );
-                            const defaultPickupDate = order.pickupTime
-                                ? toDateSelectValue(order.pickupTime)
-                                : "";
                             const defaultPickupHour = order.pickupTime
                                 ? String(order.pickupTime.getHours()).padStart(
                                       2,
@@ -473,6 +450,21 @@ export default async function AccountPage({
                                                     {order.pickupTime.toLocaleString()}
                                                 </p>
                                             )}
+                                            {order.serviceDate && (
+                                                <p
+                                                    style={{
+                                                        margin: "0 0 6px",
+                                                        color: "#666",
+                                                    }}
+                                                >
+                                                    Menu date:{" "}
+                                                    {formatMenuDate(
+                                                        toDateKey(
+                                                            order.serviceDate
+                                                        )
+                                                    )}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div>
@@ -519,46 +511,6 @@ export default async function AccountPage({
                                                         marginBottom: 12,
                                                     }}
                                                 >
-                                                    <label
-                                                        htmlFor={`pickup-date-${order.id}`}
-                                                    >
-                                                        Pickup Date
-                                                        <select
-                                                            id={`pickup-date-${order.id}`}
-                                                            name="pickupDate"
-                                                            defaultValue={
-                                                                defaultPickupDate
-                                                            }
-                                                            required
-                                                            style={{
-                                                                display: "block",
-                                                                width: "100%",
-                                                                padding: 8,
-                                                                marginTop: 4,
-                                                            }}
-                                                        >
-                                                            <option value="">
-                                                                Select date
-                                                            </option>
-                                                            {pickupDateOptions.map(
-                                                                (option) => (
-                                                                    <option
-                                                                        key={
-                                                                            option.value
-                                                                        }
-                                                                        value={
-                                                                            option.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            option.label
-                                                                        }
-                                                                    </option>
-                                                                )
-                                                            )}
-                                                        </select>
-                                                    </label>
-
                                                     <label
                                                         htmlFor={`pickup-hour-${order.id}`}
                                                     >

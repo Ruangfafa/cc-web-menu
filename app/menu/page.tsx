@@ -1,4 +1,10 @@
 import { auth } from "@/auth";
+import {
+    formatMenuDate,
+    parseDateKey,
+    todayDateKey,
+    toDateKey,
+} from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
@@ -26,12 +32,47 @@ function formatPrice(priceCents: number) {
  * 顾客端必须以 menu_items 为中心读取数据，
  * 不能直接把 general_items 当成最终菜单。
  */
-export default async function MenuPage() {
+export default async function MenuPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ date?: string }>;
+}) {
+    const { date } = await searchParams;
     const session = await auth();
+    const todayKey = todayDateKey();
+    const requestedDateKey = date || todayKey;
+    const requestedDate = parseDateKey(requestedDateKey);
+    const selectedDateKey =
+        requestedDate && requestedDateKey >= todayKey ? requestedDateKey : todayKey;
+    const selectedDate = parseDateKey(selectedDateKey) || new Date();
+    const todayDate = parseDateKey(todayKey) || new Date();
+
+    const availableMenuDates = await prisma.menuItem.findMany({
+        where: {
+            isActive: true,
+            availableDate: {
+                gte: todayDate,
+            },
+            mainItem: {
+                isAvailable: true,
+            },
+        },
+        distinct: ["availableDate"],
+        orderBy: {
+            availableDate: "asc",
+        },
+        select: {
+            availableDate: true,
+        },
+    });
+    const menuDateOptions = availableMenuDates.map((item) =>
+        toDateKey(item.availableDate)
+    );
 
     const menuItems = await prisma.menuItem.findMany({
         where: {
             isActive: true,
+            availableDate: selectedDate,
             mainItem: {
                 isAvailable: true,
             },
@@ -128,16 +169,52 @@ export default async function MenuPage() {
             <header style={{ marginBottom: 32 }}>
                 <h1>C&C Kitchen Menu</h1>
                 <p style={{ color: "#666" }}>
-                    Browse our available menu items.
+                    Showing menu for {formatMenuDate(selectedDateKey)}.
                 </p>
             </header>
+
+            <section style={{ marginBottom: 28 }}>
+                <h2>Choose Menu Date</h2>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {[todayKey, ...menuDateOptions]
+                        .filter(
+                            (value, index, values) =>
+                                values.indexOf(value) === index
+                        )
+                        .map((dateKey) => {
+                            const isSelected = dateKey === selectedDateKey;
+
+                            return (
+                                <Link
+                                    key={dateKey}
+                                    href={`/menu?date=${dateKey}`}
+                                    style={{
+                                        display: "inline-block",
+                                        padding: "10px 14px",
+                                        borderRadius: 8,
+                                        border: isSelected
+                                            ? "1px solid #111"
+                                            : "1px solid #ccc",
+                                        background: isSelected ? "#111" : "#fff",
+                                        color: isSelected ? "#fff" : "#111",
+                                        textDecoration: "none",
+                                    }}
+                                >
+                                    {formatMenuDate(dateKey)}
+                                </Link>
+                            );
+                        })}
+                </div>
+            </section>
 
             <section>
                 <h2>Menu Items</h2>
 
                 {menuItems.length === 0 ? (
                     <p style={{ color: "#666" }}>
-                        当前还没有可显示的菜单项。请先在后台配置菜单。
+                        No active menu items for{" "}
+                        {formatMenuDate(selectedDateKey)}.
                     </p>
                 ) : (
                     <div

@@ -7,6 +7,7 @@ import {
     subscribeCart,
     updateCartItemQuantity,
 } from "@/lib/cart";
+import { formatMenuDate } from "@/lib/menu-date";
 import Link from "next/link";
 import { useMemo, useSyncExternalStore } from "react";
 
@@ -37,6 +38,15 @@ export default function CartClient() {
             0
         );
     }, [cartItems]);
+    const cartServiceDates = [
+        ...new Set(cartItems.map((item) => item.serviceDate).filter(Boolean)),
+    ];
+    const cartHasSingleServiceDate =
+        cartServiceDates.length === 1 &&
+        cartItems.every((item) => item.serviceDate === cartServiceDates[0]);
+    const cartServiceDate = cartHasSingleServiceDate
+        ? cartServiceDates[0] || ""
+        : "";
 
     function handleDecrease(cartItemId: string, currentQuantity: number) {
         updateCartItemQuantity(cartItemId, currentQuantity - 1);
@@ -86,6 +96,13 @@ export default function CartClient() {
                         }}
                     >
                         <h2 style={{ margin: "0 0 8px" }}>{item.nameSnapshot}</h2>
+
+                        <p style={{ margin: "0 0 8px", color: "#666" }}>
+                            Menu date:{" "}
+                            {item.serviceDate
+                                ? formatMenuDate(item.serviceDate)
+                                : "Unknown"}
+                        </p>
 
                         <p style={{ margin: "0 0 8px", color: "#666" }}>
                             Base price:{" "}
@@ -195,9 +212,20 @@ export default function CartClient() {
                     Subtotal: {formatPrice(subtotalCents)}
                 </p>
 
+                {!cartHasSingleServiceDate && (
+                    <p style={{ color: "#b00020" }}>
+                        This cart contains mixed or unknown menu dates. Remove
+                        older items before checkout.
+                    </p>
+                )}
+
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <Link href="/menu">Continue Shopping</Link>
-                    <Link href="/checkout">Checkout Coming Soon</Link>
+                    {cartHasSingleServiceDate ? (
+                        <Link href="/checkout">Checkout</Link>
+                    ) : (
+                        <span style={{ color: "#666" }}>Checkout unavailable</span>
+                    )}
 
                     <button type="button" onClick={handleClearCart}>
                         Clear Cart

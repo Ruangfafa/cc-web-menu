@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import {
+    formatMenuDate,
+    parseDateKey,
+    todayDateKey,
+    toDateKey,
+} from "@/lib/menu-date";
 import { redirect } from "next/navigation";
 import MenuItemSelectionClient from "./MenuItemSelectionClient";
 
@@ -33,6 +39,7 @@ export default async function MenuItemPage({
 }) {
     const { id } = await params;
     const menuItemId = Number(id);
+    const todayDate = parseDateKey(todayDateKey()) || new Date();
 
     if (!Number.isInteger(menuItemId) || menuItemId <= 0) {
         redirect("/menu");
@@ -42,6 +49,9 @@ export default async function MenuItemPage({
         where: {
             id: menuItemId,
             isActive: true,
+            availableDate: {
+                gte: todayDate,
+            },
             mainItem: {
                 isAvailable: true,
             },
@@ -92,17 +102,22 @@ export default async function MenuItemPage({
         menuItem.displayDescription ||
         menuItem.mainItem.description ||
         "No description.";
+    const serviceDate = toDateKey(menuItem.availableDate);
 
     return (
         <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
             <header style={{ marginBottom: 24 }}>
                 <p style={{ margin: "0 0 12px" }}>
-                    <Link href="/menu">Back to menu</Link>
+                    <Link href={`/menu?date=${serviceDate}`}>Back to menu</Link>
                     {" | "}
                     <Link href="/cart">View cart</Link>
                 </p>
 
                 <h1 style={{ margin: "0 0 12px" }}>{displayName}</h1>
+
+                <p style={{ color: "#444", margin: "0 0 12px" }}>
+                    Menu date: {formatMenuDate(serviceDate)}
+                </p>
 
                 <p style={{ color: "#666", margin: "0 0 16px" }}>
                     {displayDescription}
@@ -156,7 +171,10 @@ export default async function MenuItemPage({
             <section>
                 <h2 style={{ marginBottom: 16 }}>Options</h2>
 
-                <MenuItemSelectionClient menuItem={menuItem} />
+                <MenuItemSelectionClient
+                    menuItem={menuItem}
+                    serviceDate={serviceDate}
+                />
             </section>
         </main>
     );
