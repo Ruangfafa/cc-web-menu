@@ -81,3 +81,29 @@ export async function createMenuItem(formData: FormData) {
 
     redirect("/admin/menu");
 }
+
+export async function deleteMenuItem(formData: FormData) {
+    await requireAdmin();
+
+    const menuItemId = Number(formData.get("menuItemId"));
+
+    if (!Number.isInteger(menuItemId) || menuItemId <= 0) {
+        throw new Error("Invalid menu item id.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.menuItemOptionGroup.deleteMany({
+            where: {
+                menuItemId,
+            },
+        });
+
+        await tx.menuItem.delete({
+            where: {
+                id: menuItemId,
+            },
+        });
+    });
+
+    redirect("/admin/menu");
+}

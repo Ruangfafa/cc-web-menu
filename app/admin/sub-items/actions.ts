@@ -48,3 +48,29 @@ export async function createSubItem(formData: FormData) {
 
     redirect("/admin/sub-items");
 }
+
+export async function deleteSubItem(formData: FormData) {
+    await requireAdmin();
+
+    const subItemId = Number(formData.get("subItemId"));
+
+    if (!Number.isInteger(subItemId) || subItemId <= 0) {
+        throw new Error("Invalid sub item id.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.optionGroupItem.deleteMany({
+            where: {
+                subItemId,
+            },
+        });
+
+        await tx.subItem.delete({
+            where: {
+                id: subItemId,
+            },
+        });
+    });
+
+    redirect("/admin/sub-items");
+}

@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
 import CheckoutClient from "./CheckoutClient";
 
@@ -21,6 +22,20 @@ import CheckoutClient from "./CheckoutClient";
  */
 export default async function CheckoutPage() {
     const session = await auth();
+    const deliverySetting = await prisma.deliverySetting.findUnique({
+        where: {
+            id: 1,
+        },
+    });
+    const siteAddresses = await prisma.siteAddress.findMany({
+        where: {
+            isActive: true,
+        },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    const deliveryMode =
+        deliverySetting?.mode || DeliveryAddressMode.SELF_ADDRESS;
+    const requirePickupTime = deliverySetting?.requirePickupTime || false;
 
     let userProfile: {
         name: string;
@@ -83,7 +98,14 @@ export default async function CheckoutPage() {
             </header>
 
             <CheckoutClient
+                deliveryMode={deliveryMode}
+                requirePickupTime={requirePickupTime}
                 isLoggedIn={Boolean(session?.user)}
+                siteAddresses={siteAddresses.map((address) => ({
+                    id: address.id,
+                    name: address.name,
+                    fullAddress: address.fullAddress,
+                }))}
                 userProfile={userProfile}
             />
         </main>

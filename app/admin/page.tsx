@@ -149,6 +149,21 @@ export default async function AdminPage() {
                     <h2>User Management</h2>
                     <p>View customer accounts.</p>
                 </a>
+
+                <a
+                    href="/admin/delivery"
+                    style={{
+                        display: "block",
+                        padding: 20,
+                        border: "1px solid #ddd",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                        color: "inherit",
+                    }}
+                >
+                    <h2>Settings</h2>
+                    <p>Manage delivery mode, site addresses, and checkout requirements.</p>
+                </a>
             </section>
         </main>
     );

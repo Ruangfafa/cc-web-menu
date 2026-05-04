@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { createMainItem } from "./actions";
+import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
+import { createMainItem, deleteMainItem } from "./actions";
 
 /**
  * 把 cents 转成价格显示
@@ -192,6 +193,14 @@ export default async function AdminGeneralItemsPage() {
                                         {item.imageUrl}
                                     </p>
                                 )}
+                                <form action={deleteMainItem}>
+                                    <input
+                                        type="hidden"
+                                        name="mainItemId"
+                                        value={item.id}
+                                    />
+                                    <ConfirmDeleteButton itemName={item.name} />
+                                </form>
                             </article>
                         ))}
                     </div>

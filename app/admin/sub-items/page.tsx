@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { createSubItem } from "./actions";
+import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
+import { createSubItem, deleteSubItem } from "./actions";
 
 /**
  * 附属项管理页面
@@ -98,6 +99,14 @@ export default async function AdminSubItemsPage() {
                                     <strong>ID：</strong>
                                     {item.id}
                                 </p>
+                                <form action={deleteSubItem}>
+                                    <input
+                                        type="hidden"
+                                        name="subItemId"
+                                        value={item.id}
+                                    />
+                                    <ConfirmDeleteButton itemName={item.name} />
+                                </form>
                             </article>
                         ))}
                     </div>

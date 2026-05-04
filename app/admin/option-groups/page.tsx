@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { createOptionGroup } from "./actions";
+import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
+import { createOptionGroup, deleteOptionGroup } from "./actions";
 
 /**
  * 选项组管理页面
@@ -211,6 +212,14 @@ export default async function AdminOptionGroupsPage() {
                                         管理这个选项组的选项
                                     </a>
                                 </p>
+                                <form action={deleteOptionGroup}>
+                                    <input
+                                        type="hidden"
+                                        name="optionGroupId"
+                                        value={group.id}
+                                    />
+                                    <ConfirmDeleteButton itemName={group.name} />
+                                </form>
                             </article>
                         ))}
                     </div>

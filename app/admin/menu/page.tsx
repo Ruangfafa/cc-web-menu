@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { createMenuItem } from "./actions";
+import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
+import { createMenuItem, deleteMenuItem } from "./actions";
 
 /**
  * 价格格式化
@@ -259,6 +260,16 @@ export default async function AdminMenuPage() {
                                             配置这个菜单项的选项组
                                         </a>
                                     </p>
+                                    <form action={deleteMenuItem}>
+                                        <input
+                                            type="hidden"
+                                            name="menuItemId"
+                                            value={item.id}
+                                        />
+                                        <ConfirmDeleteButton
+                                            itemName={displayName}
+                                        />
+                                    </form>
                                 </article>
                             );
                         })}

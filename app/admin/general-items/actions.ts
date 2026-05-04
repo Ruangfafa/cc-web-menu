@@ -80,3 +80,51 @@ export async function createMainItem(formData: FormData) {
      */
     redirect("/admin/general-items");
 }
+
+export async function deleteMainItem(formData: FormData) {
+    await requireAdmin();
+
+    const mainItemId = Number(formData.get("mainItemId"));
+
+    if (!Number.isInteger(mainItemId) || mainItemId <= 0) {
+        throw new Error("Invalid main item id.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+        const menuItems = await tx.menuItem.findMany({
+            where: {
+                mainItemId,
+            },
+            select: {
+                id: true,
+            },
+        });
+        const menuItemIds = menuItems.map((item) => item.id);
+
+        if (menuItemIds.length > 0) {
+            await tx.menuItemOptionGroup.deleteMany({
+                where: {
+                    menuItemId: {
+                        in: menuItemIds,
+                    },
+                },
+            });
+
+            await tx.menuItem.deleteMany({
+                where: {
+                    id: {
+                        in: menuItemIds,
+                    },
+                },
+            });
+        }
+
+        await tx.mainItem.delete({
+            where: {
+                id: mainItemId,
+            },
+        });
+    });
+
+    redirect("/admin/general-items");
+}

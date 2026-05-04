@@ -78,3 +78,35 @@ export async function createOptionGroup(formData: FormData) {
 
     redirect("/admin/option-groups");
 }
+
+export async function deleteOptionGroup(formData: FormData) {
+    await requireAdmin();
+
+    const optionGroupId = Number(formData.get("optionGroupId"));
+
+    if (!Number.isInteger(optionGroupId) || optionGroupId <= 0) {
+        throw new Error("Invalid option group id.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.menuItemOptionGroup.deleteMany({
+            where: {
+                optionGroupId,
+            },
+        });
+
+        await tx.optionGroupItem.deleteMany({
+            where: {
+                optionGroupId,
+            },
+        });
+
+        await tx.optionGroup.delete({
+            where: {
+                id: optionGroupId,
+            },
+        });
+    });
+
+    redirect("/admin/option-groups");
+}

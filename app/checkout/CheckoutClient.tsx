@@ -1,7 +1,9 @@
 "use client";
 
-import { readCart, subscribeCart } from "@/lib/cart";
+import { clearCart, readCart, subscribeCart } from "@/lib/cart";
+import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
 type CheckoutUserAddress = {
@@ -11,7 +13,14 @@ type CheckoutUserAddress = {
 };
 
 type CheckoutClientProps = {
+    deliveryMode: DeliveryAddressMode;
+    requirePickupTime: boolean;
     isLoggedIn: boolean;
+    siteAddresses: Array<{
+        id: number;
+        name: string;
+        fullAddress: string;
+    }>;
     userProfile: {
         name: string;
         email: string;
@@ -23,6 +32,34 @@ type CheckoutClientProps = {
 function formatPrice(priceCents: number) {
     return `$${(priceCents / 100).toFixed(2)}`;
 }
+
+function toDateSelectValue(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+const pickupDateOptions = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+
+    return {
+        value: toDateSelectValue(date),
+        label: date.toLocaleDateString(undefined, {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+        }),
+    };
+});
+const pickupHourOptions = Array.from({ length: 24 }, (_, hour) =>
+    String(hour).padStart(2, "0")
+);
+const pickupMinuteOptions = Array.from({ length: 60 }, (_, minute) =>
+    String(minute).padStart(2, "0")
+);
 
 /**
  * 结账页客户端组件
@@ -38,9 +75,13 @@ function formatPrice(priceCents: number) {
  * 这部分必须在客户端读取。
  */
 export default function CheckoutClient({
+    deliveryMode,
+    requirePickupTime,
     isLoggedIn,
+    siteAddresses,
     userProfile,
 }: CheckoutClientProps) {
+    const router = useRouter();
     const cartItems = useSyncExternalStore(subscribeCart, readCart, () => []);
 
     const subtotalCents = useMemo(() => {
@@ -53,6 +94,11 @@ export default function CheckoutClient({
     const [guestName, setGuestName] = useState("");
     const [guestPhone, setGuestPhone] = useState("");
     const [guestAddress, setGuestAddress] = useState("");
+    const [pickupDate, setPickupDate] = useState("");
+    const [pickupHour, setPickupHour] = useState("");
+    const [pickupMinute, setPickupMinute] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState("");
     const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
         const defaultAddress = userProfile?.addresses.find(
             (address) => address.isDefault
@@ -62,6 +108,76 @@ export default function CheckoutClient({
     });
 
     const hasCartItems = cartItems.length > 0;
+    const useSiteAddressMode = deliveryMode === DeliveryAddressMode.SITE_ADDRESS;
+    const hasSavedAddress = Boolean(userProfile?.addresses.length);
+    const hasSiteAddress = siteAddresses.length > 0;
+    const hasPickupTime =
+        !requirePickupTime ||
+        (Boolean(pickupDate) && Boolean(pickupHour) && Boolean(pickupMinute));
+
+    const canSubmitOrder = isLoggedIn
+        ? hasCartItems &&
+          hasPickupTime &&
+          (useSiteAddressMode
+              ? hasSiteAddress && Boolean(selectedAddressId)
+              : hasSavedAddress && Boolean(selectedAddressId))
+        : hasCartItems &&
+          hasPickupTime &&
+          guestName.trim().length > 0 &&
+          guestPhone.trim().length > 0 &&
+          (useSiteAddressMode
+              ? hasSiteAddress && Boolean(selectedAddressId)
+              : guestAddress.trim().length > 0);
+
+    async function handleSubmitOrder() {
+        setSubmitError("");
+        setSubmitting(true);
+
+        const pickupTime =
+            pickupDate && pickupHour && pickupMinute
+                ? new Date(
+                      Number(pickupDate.slice(0, 4)),
+                      Number(pickupDate.slice(5, 7)) - 1,
+                      Number(pickupDate.slice(8, 10)),
+                      Number(pickupHour),
+                      Number(pickupMinute)
+                  ).toISOString()
+                : null;
+
+        const response = await fetch("/api/checkout", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                cartItems,
+                selectedAddressId: selectedAddressId
+                    ? Number(selectedAddressId)
+                    : null,
+                deliveryMode,
+                guestName,
+                guestPhone,
+                guestAddress,
+                pickupTime,
+            }),
+        });
+
+        const result = (await response.json()) as {
+            success?: boolean;
+            orderId?: number;
+            error?: string;
+        };
+
+        setSubmitting(false);
+
+        if (!response.ok || !result.success || !result.orderId) {
+            setSubmitError(result.error || "Failed to create order.");
+            return;
+        }
+
+        clearCart();
+        router.push(`/checkout/success?orderId=${result.orderId}`);
+    }
 
     return (
         <div
@@ -98,15 +214,69 @@ export default function CheckoutClient({
                         </p>
 
                         <section>
-                            <h3>Select Delivery Address</h3>
+                            <h3>
+                                {useSiteAddressMode
+                                    ? "Select Site Address"
+                                    : "Select Delivery Address"}
+                            </h3>
 
-                            {userProfile.addresses.length === 0 ? (
+                            {useSiteAddressMode ? (
+                                siteAddresses.length === 0 ? (
+                                    <div>
+                                        <p style={{ color: "#666" }}>
+                                            No site address is available.
+                                        </p>
+                                        <p style={{ color: "#666" }}>
+                                            Please ask admin to configure site
+                                            addresses.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: "grid", gap: 12 }}>
+                                        {siteAddresses.map((address) => (
+                                            <label
+                                                key={address.id}
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "flex-start",
+                                                    gap: 10,
+                                                    padding: 12,
+                                                    border: "1px solid #eee",
+                                                    borderRadius: 8,
+                                                }}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="site-address"
+                                                    value={address.id}
+                                                    checked={
+                                                        selectedAddressId ===
+                                                        String(address.id)
+                                                    }
+                                                    onChange={(event) =>
+                                                        setSelectedAddressId(
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                />
+
+                                                <span>
+                                                    <strong>{address.name}</strong>
+                                                    <br />
+                                                    {address.fullAddress}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )
+                            ) : userProfile.addresses.length === 0 ? (
                                 <div>
                                     <p style={{ color: "#666" }}>
                                         No saved address found for this account.
                                     </p>
                                     <p style={{ color: "#666" }}>
-                                        Address management will be added later.
+                                        Please add an address before placing an
+                                        order.
                                     </p>
                                 </div>
                             ) : (
@@ -188,26 +358,184 @@ export default function CheckoutClient({
                             />
                         </div>
 
-                        <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="guestAddress">Address</label>
-                            <textarea
-                                id="guestAddress"
-                                value={guestAddress}
-                                onChange={(event) =>
-                                    setGuestAddress(event.target.value)
-                                }
-                                placeholder="Delivery address"
-                                rows={4}
-                                style={{
-                                    display: "block",
-                                    width: "100%",
-                                    padding: 8,
-                                    marginTop: 4,
-                                    resize: "vertical",
-                                }}
-                            />
-                        </div>
+                        {useSiteAddressMode ? (
+                            <div style={{ marginBottom: 16 }}>
+                                <label>Select Site Address</label>
+
+                                {siteAddresses.length === 0 ? (
+                                    <p style={{ color: "#666", marginTop: 4 }}>
+                                        No site address is available.
+                                    </p>
+                                ) : (
+                                    <div
+                                        style={{
+                                            display: "grid",
+                                            gap: 12,
+                                            marginTop: 8,
+                                        }}
+                                    >
+                                        {siteAddresses.map((address) => (
+                                            <label
+                                                key={address.id}
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "flex-start",
+                                                    gap: 10,
+                                                    padding: 12,
+                                                    border: "1px solid #eee",
+                                                    borderRadius: 8,
+                                                }}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="guest-site-address"
+                                                    value={address.id}
+                                                    checked={
+                                                        selectedAddressId ===
+                                                        String(address.id)
+                                                    }
+                                                    onChange={(event) =>
+                                                        setSelectedAddressId(
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                />
+
+                                                <span>
+                                                    <strong>{address.name}</strong>
+                                                    <br />
+                                                    {address.fullAddress}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="guestAddress">Address</label>
+                                <textarea
+                                    id="guestAddress"
+                                    value={guestAddress}
+                                    onChange={(event) =>
+                                        setGuestAddress(event.target.value)
+                                    }
+                                    placeholder="Delivery address"
+                                    rows={4}
+                                    style={{
+                                        display: "block",
+                                        width: "100%",
+                                        padding: 8,
+                                        marginTop: 4,
+                                        resize: "vertical",
+                                    }}
+                                />
+                            </div>
+                        )}
                     </form>
+                )}
+
+                {requirePickupTime && (
+                    <section
+                        style={{
+                            marginTop: 24,
+                            paddingTop: 16,
+                            borderTop: "1px solid #eee",
+                        }}
+                    >
+                        <h3>Pickup Time</h3>
+
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                    "repeat(auto-fit, minmax(120px, 1fr))",
+                                gap: 12,
+                            }}
+                        >
+                            <label htmlFor="pickupDate">
+                                Date
+                                <select
+                                    id="pickupDate"
+                                    value={pickupDate}
+                                    onChange={(event) =>
+                                        setPickupDate(event.target.value)
+                                    }
+                                    required
+                                    style={{
+                                        display: "block",
+                                        width: "100%",
+                                        padding: 8,
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    <option value="">Select date</option>
+                                    {pickupDateOptions.map((option) => (
+                                        <option
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label htmlFor="pickupHour">
+                                Hour
+                                <select
+                                    id="pickupHour"
+                                    value={pickupHour}
+                                    onChange={(event) =>
+                                        setPickupHour(event.target.value)
+                                    }
+                                    required
+                                    style={{
+                                        display: "block",
+                                        width: "100%",
+                                        padding: 8,
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    <option value="">Hour</option>
+                                    {pickupHourOptions.map((hour) => (
+                                        <option key={hour} value={hour}>
+                                            {hour}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label htmlFor="pickupMinute">
+                                Minute
+                                <select
+                                    id="pickupMinute"
+                                    value={pickupMinute}
+                                    onChange={(event) =>
+                                        setPickupMinute(event.target.value)
+                                    }
+                                    required
+                                    style={{
+                                        display: "block",
+                                        width: "100%",
+                                        padding: 8,
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    <option value="">Minute</option>
+                                    {pickupMinuteOptions.map((minute) => (
+                                        <option key={minute} value={minute}>
+                                            {minute}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+
+                        <p style={{ color: "#666" }}>
+                            Pickup time is required for this order.
+                        </p>
+                    </section>
                 )}
 
                 <section
@@ -220,22 +548,32 @@ export default function CheckoutClient({
                     <h3>Next Step</h3>
 
                     <p style={{ color: "#666" }}>
-                        This page only prepares checkout information for now.
+                        Submit the current cart as a real order.
                     </p>
+
+                    {submitError && (
+                        <p style={{ color: "#b00020" }}>{submitError}</p>
+                    )}
 
                     <button
                         type="button"
-                        disabled
+                        onClick={handleSubmitOrder}
+                        disabled={!canSubmitOrder || submitting}
                         style={{
                             padding: "10px 16px",
                             borderRadius: 8,
-                            border: "1px solid #ccc",
-                            background: "#eee",
-                            color: "#666",
-                            cursor: "not-allowed",
+                            border: "1px solid #333",
+                            background:
+                                !canSubmitOrder || submitting ? "#ddd" : "#111",
+                            color:
+                                !canSubmitOrder || submitting ? "#666" : "#fff",
+                            cursor:
+                                !canSubmitOrder || submitting
+                                    ? "not-allowed"
+                                    : "pointer",
                         }}
                     >
-                        Place Order Coming Soon
+                        {submitting ? "Submitting..." : "Place Order"}
                     </button>
                 </section>
             </section>
