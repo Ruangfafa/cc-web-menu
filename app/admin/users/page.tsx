@@ -1,8 +1,10 @@
 import { auth } from "@/auth";
 import { UserRole } from "@prisma/client";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
 import { updateUserManagement } from "./actions";
 
 /**
@@ -17,6 +19,7 @@ import { updateUserManagement } from "./actions";
  * 3. 修改用户角色和启用状态
  */
 export default async function AdminUsersPage() {
+    const t = createTranslator(await getLocale());
     const session = await auth();
 
     if (!session?.user) {
@@ -40,21 +43,29 @@ export default async function AdminUsersPage() {
     });
 
     return (
-        <main style={{ maxWidth: 1100, margin: "60px auto", padding: 24 }}>
-            <header style={{ marginBottom: 24 }}>
-                <p style={{ margin: "0 0 12px" }}>
-                    <Link href="/admin">Back to admin</Link>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
                 </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin">
+                        {t("backToAdmin")}
+                    </a>
+                </div>
+            </section>
 
-                <h1 style={{ margin: "0 0 8px" }}>User Management</h1>
+            <header style={{ marginBottom: 24 }}>
+                <h1 style={{ margin: "0 0 8px" }}>{t("userManagement")}</h1>
 
                 <p style={{ color: "#666", margin: 0 }}>
-                    View customer accounts and update access settings.
+                    {t("usersAdminDesc")}
                 </p>
             </header>
 
             {users.length === 0 ? (
-                <p style={{ color: "#666" }}>No users found.</p>
+                <p style={{ color: "#666" }}>{t("noUsers")}</p>
             ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                     {users.map((user) => (
@@ -81,19 +92,19 @@ export default async function AdminUsersPage() {
                                     </p>
 
                                     <p style={{ margin: "0 0 6px" }}>
-                                        Email: {user.email}
+                                        {t("email")}: {user.email}
                                     </p>
 
                                     <p style={{ margin: "0 0 6px" }}>
-                                        Phone: {user.phone}
+                                        {t("phone")}: {user.phone}
                                     </p>
 
                                     <p style={{ margin: "0 0 6px" }}>
-                                        Addresses: {user.addresses.length}
+                                        {t("addresses")} {user.addresses.length}
                                     </p>
 
                                     <p style={{ margin: 0 }}>
-                                        Orders: {user._count.orders}
+                                        {t("orders")} {user._count.orders}
                                     </p>
                                 </div>
 
@@ -101,7 +112,9 @@ export default async function AdminUsersPage() {
                                     <input type="hidden" name="userId" value={user.id} />
 
                                     <div style={{ marginBottom: 12 }}>
-                                        <label htmlFor={`role-${user.id}`}>Role</label>
+                                        <label htmlFor={`role-${user.id}`}>
+                                            {t("role")}
+                                        </label>
 
                                         <select
                                             id={`role-${user.id}`}
@@ -114,7 +127,9 @@ export default async function AdminUsersPage() {
                                         >
                                             {Object.values(UserRole).map((role) => (
                                                 <option key={role} value={role}>
-                                                    {role}
+                                                    {role === UserRole.ADMIN
+                                                        ? t("roleAdmin")
+                                                        : t("roleCustomer")}
                                                 </option>
                                             ))}
                                         </select>
@@ -127,11 +142,11 @@ export default async function AdminUsersPage() {
                                                 name="isActive"
                                                 defaultChecked={user.isActive}
                                             />{" "}
-                                            Active
+                                            {t("active")}
                                         </label>
                                     </div>
 
-                                    <button type="submit">Update User</button>
+                                    <button type="submit">{t("updateUser")}</button>
                                 </form>
                             </div>
                         </article>

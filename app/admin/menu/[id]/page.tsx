@@ -1,8 +1,15 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { addOptionGroupToMenuItem } from "./actions";
+import { LanguageSwitcher } from "../../../LanguageSwitcher";
+import { ConfirmDeleteButton } from "../../ConfirmDeleteButton";
+import {
+    addOptionGroupToMenuItem,
+    deleteMenuItemOptionGroup,
+} from "./actions";
 
 /**
  * 价格格式化
@@ -29,6 +36,7 @@ export default async function AdminMenuItemDetailPage({
                                                       }: {
     params: Promise<{ id: string }>;
 }) {
+    const t = createTranslator(await getLocale());
     /**
      * Next.js 16 中 params 是 Promise
      */
@@ -121,38 +129,47 @@ export default async function AdminMenuItemDetailPage({
     const displayDescription =
         menuItem.displayDescription ||
         menuItem.mainItem.description ||
-        "无介绍";
+        t("noDescription");
 
     return (
-        <main style={{ maxWidth: 1000, margin: "60px auto", padding: 24 }}>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
+                </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin/menu">
+                        {t("backToMenuConfig")}
+                    </a>
+                </div>
+            </section>
+
             <header style={{ marginBottom: 32 }}>
-                <h1>菜单项配置：{displayName}</h1>
+                <h1>{t("menuItemConfigTitle", { name: displayName })}</h1>
 
                 <p>{displayDescription}</p>
 
                 <p>
-                    <strong>基础菜品：</strong>
+                    <strong>{t("baseDish")}</strong>
                     {menuItem.mainItem.name}
                 </p>
 
                 <p>
-                    <strong>基础价格：</strong>
+                    <strong>{t("basePrice")}:</strong>
                     {formatPrice(menuItem.mainItem.priceCents)}
                 </p>
 
                 <p>
-                    <strong>Menu date: </strong>
+                    <strong>{t("menuDateLabel")} </strong>
                     {formatMenuDate(toDateKey(menuItem.availableDate))}
                 </p>
 
                 <p>
-                    <strong>状态：</strong>
-                    {menuItem.isActive ? "显示" : "隐藏"}
+                    <strong>{t("status")}</strong>
+                    {menuItem.isActive ? t("active") : t("inactive")}
                 </p>
 
-                <p>
-                    <a href="/admin/menu">返回菜单配置</a>
-                </p>
             </header>
 
             <section
@@ -163,18 +180,19 @@ export default async function AdminMenuItemDetailPage({
                     marginBottom: 40,
                 }}
             >
-                <h2>绑定选项组</h2>
+                <h2>{t("bindOptionGroup")}</h2>
 
                 {optionGroups.length === 0 ? (
                     <p>
-                        还没有选项组。请先去{" "}
-                        <a href="/admin/option-groups">选项组管理</a>{" "}
-                        创建选项组。
+                        {t("noOptionGroupsForBinding")}{" "}
+                        <a href="/admin/option-groups">
+                            {t("goCreateOptionGroup")}
+                        </a>
                     </p>
                 ) : (
                     <form action={addAction}>
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="optionGroupId">选择选项组</label>
+                            <label htmlFor="optionGroupId">{t("selectOptionGroup")}</label>
 
                             <select
                                 id="optionGroupId"
@@ -187,12 +205,12 @@ export default async function AdminMenuItemDetailPage({
                                     marginTop: 4,
                                 }}
                             >
-                                <option value="">请选择选项组</option>
+                                <option value="">{t("selectOptionGroupPlaceholder")}</option>
 
                                 {optionGroups.map((group) => (
                                     <option key={group.id} value={group.id}>
-                                        {group.name}：
-                                        {group.isRequired ? "必选" : "非必选"}，
+                                        {group.name}:{" "}
+                                        {group.isRequired ? t("required") : t("optional")}{" "}
                                         {group.minSelect} - {group.maxSelect}
                                     </option>
                                 ))}
@@ -200,7 +218,7 @@ export default async function AdminMenuItemDetailPage({
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="sortOrder">在这个菜品中的显示顺序</label>
+                            <label htmlFor="sortOrder">{t("sortOrderInMenuItem")}</label>
 
                             <input
                                 id="sortOrder"
@@ -217,16 +235,16 @@ export default async function AdminMenuItemDetailPage({
                             />
                         </div>
 
-                        <button type="submit">绑定选项组</button>
+                        <button type="submit">{t("bindOptionGroupButton")}</button>
                     </form>
                 )}
             </section>
 
             <section>
-                <h2>当前已绑定选项组</h2>
+                <h2>{t("currentBoundOptionGroups")}</h2>
 
                 {menuItem.optionGroups.length === 0 ? (
-                    <p>这个菜单项目前还没有绑定选项组。</p>
+                    <p>{t("noBoundOptionGroups")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {menuItem.optionGroups.map((relation) => {
@@ -243,26 +261,43 @@ export default async function AdminMenuItemDetailPage({
                                 >
                                     <h3>{group.name}</h3>
 
-                                    <p>{group.description || "无说明"}</p>
+                                    <p>{group.description || t("noDescription")}</p>
 
                                     <p>
-                                        <strong>规则：</strong>
-                                        {group.isRequired ? "必选" : "非必选"}，
-                                        最少选 {group.minSelect} 个，
-                                        最多选 {group.maxSelect} 个
+                                        <strong>{t("rulesLabel")}</strong>
+                                        {t("groupRules", {
+                                            type: group.isRequired
+                                                ? t("required")
+                                                : t("optional"),
+                                            min: group.minSelect,
+                                            max: group.maxSelect,
+                                        })}
                                     </p>
 
                                     <p>
-                                        <strong>在当前菜品中的排序：</strong>
+                                        <strong>{t("sortOrderInMenuItem")}:</strong>
                                         {relation.sortOrder}
                                     </p>
+                                    <form action={deleteMenuItemOptionGroup}>
+                                        <input
+                                            type="hidden"
+                                            name="menuItemId"
+                                            value={menuItem.id}
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name="menuItemOptionGroupId"
+                                            value={relation.id}
+                                        />
+                                        <ConfirmDeleteButton itemName={group.name} />
+                                    </form>
 
                                     <p>
-                                        <strong>选项：</strong>
+                                        <strong>{t("optionsLabel")}</strong>
                                     </p>
 
                                     {group.options.length === 0 ? (
-                                        <p>这个选项组还没有选项。</p>
+                                        <p>{t("noOptionsYet")}</p>
                                     ) : (
                                         <ul>
                                             {group.options.map((option) => (
@@ -270,10 +305,10 @@ export default async function AdminMenuItemDetailPage({
                                                     {option.subItem.name} -{" "}
                                                     {formatPrice(option.priceCents)}
                                                     {option.isDefault
-                                                        ? "，默认"
+                                                        ? `, ${t("default")}`
                                                         : ""}
                                                     {!option.isAvailable
-                                                        ? "，不可选"
+                                                        ? `, ${t("unavailable")}`
                                                         : ""}
                                                 </li>
                                             ))}

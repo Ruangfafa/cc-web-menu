@@ -1,6 +1,9 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
 import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
 import { createSubItem, deleteSubItem } from "./actions";
 
@@ -19,6 +22,7 @@ import { createSubItem, deleteSubItem } from "./actions";
  * 价格以后在菜单配置里的 option_group_items 设置。
  */
 export default async function AdminSubItemsPage() {
+    const t = createTranslator(await getLocale());
     const session = await auth();
 
     if (!session?.user) {
@@ -36,14 +40,22 @@ export default async function AdminSubItemsPage() {
     });
 
     return (
-        <main style={{ maxWidth: 900, margin: "60px auto", padding: 24 }}>
-            <header style={{ marginBottom: 32 }}>
-                <h1>附属项管理</h1>
-                <p>这里管理 sub_items，也就是附属项库。</p>
-
-                <p>
-                    <a href="/admin">返回 Admin Dashboard</a>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
                 </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin">
+                        {t("backToAdmin")}
+                    </a>
+                </div>
+            </section>
+            <header style={{ marginBottom: 32 }}>
+                <h1>{t("subItemManagement")}</h1>
+                <p>{t("subItemsAdminDesc")}</p>
+
             </header>
 
             <section
@@ -54,11 +66,11 @@ export default async function AdminSubItemsPage() {
                     marginBottom: 40,
                 }}
             >
-                <h2>新增附属项</h2>
+                <h2>{t("addSubItem")}</h2>
 
                 <form action={createSubItem}>
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="name">附属项名称</label>
+                        <label htmlFor="name">{t("subItemName")}</label>
                         <input
                             id="name"
                             name="name"
@@ -74,15 +86,15 @@ export default async function AdminSubItemsPage() {
                         />
                     </div>
 
-                    <button type="submit">新增附属项</button>
+                    <button type="submit">{t("addSubItem")}</button>
                 </form>
             </section>
 
             <section>
-                <h2>已有附属项</h2>
+                <h2>{t("existingSubItems")}</h2>
 
                 {subItems.length === 0 ? (
-                    <p>目前还没有附属项。</p>
+                    <p>{t("noSubItems")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {subItems.map((item) => (
@@ -96,17 +108,25 @@ export default async function AdminSubItemsPage() {
                             >
                                 <h3>{item.name}</h3>
                                 <p>
-                                    <strong>ID：</strong>
+                                    <strong>{t("idLabel")}</strong>
                                     {item.id}
                                 </p>
-                                <form action={deleteSubItem}>
+                                <div className="admin-item-actions">
+                                    <a
+                                        className="menu-action-button"
+                                        href={`/admin/sub-items/${item.id}`}
+                                    >
+                                        {t("edit")}
+                                    </a>
+                                    <form action={deleteSubItem}>
                                     <input
                                         type="hidden"
                                         name="subItemId"
                                         value={item.id}
                                     />
                                     <ConfirmDeleteButton itemName={item.name} />
-                                </form>
+                                    </form>
+                                </div>
                             </article>
                         ))}
                     </div>

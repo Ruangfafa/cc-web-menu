@@ -1,8 +1,11 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../LanguageSwitcher";
 import {
     cancelOrder,
     createAddress,
@@ -47,6 +50,7 @@ export default async function AccountPage({
     searchParams: Promise<{ orderAction?: string }>;
 }) {
     const { orderAction } = await searchParams;
+    const t = createTranslator(await getLocale());
     const session = await auth();
 
     if (!session?.user?.email) {
@@ -83,14 +87,33 @@ export default async function AccountPage({
     }
 
     return (
-        <main style={{ maxWidth: 1000, margin: "0 auto", padding: 24 }}>
-            <header style={{ marginBottom: 24 }}>
-                <p style={{ margin: "0 0 12px" }}>
-                    <Link href="/menu">Back to menu</Link>
-                    {" | "}
-                    <Link href="/cart">Cart</Link>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>
+                        {t("helloUser", {
+                            name: session.user.name || t("user"),
+                        })}
+                    </strong>
                 </p>
 
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <Link className="menu-action-button" href="/menu">
+                        {t("backToMenu")}
+                    </Link>
+                    <Link className="menu-action-button" href="/cart">
+                        {t("cart")}
+                    </Link>
+                    <form action={signOutAccount}>
+                        <button className="menu-action-button" type="submit">
+                            {t("signOut")}
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <header style={{ marginBottom: 24 }}>
                 <div
                     style={{
                         display: "flex",
@@ -101,16 +124,11 @@ export default async function AccountPage({
                     }}
                 >
                     <div>
-                        <h1 style={{ margin: "0 0 8px" }}>Account</h1>
+                        <h1 style={{ margin: "0 0 8px" }}>{t("account")}</h1>
                         <p style={{ color: "#666", margin: 0 }}>
-                            Manage your contact information, saved addresses, and
-                            recent orders.
+                            {t("accountIntro")}
                         </p>
                     </div>
-
-                    <form action={signOutAccount}>
-                        <button type="submit">Sign out</button>
-                    </form>
                 </div>
             </header>
 
@@ -124,7 +142,7 @@ export default async function AccountPage({
                         color: "#1f6b1f",
                     }}
                 >
-                    Order cancelled.
+                    {t("orderCancelled")}
                 </p>
             )}
 
@@ -138,7 +156,7 @@ export default async function AccountPage({
                         color: "#1f6b1f",
                     }}
                 >
-                    Pickup time updated.
+                    {t("pickupTimeUpdated")}
                 </p>
             )}
 
@@ -152,7 +170,7 @@ export default async function AccountPage({
                         color: "#7a4b00",
                     }}
                 >
-                    This order can no longer be changed.
+                    {t("orderUnavailable")}
                 </p>
             )}
 
@@ -172,11 +190,11 @@ export default async function AccountPage({
                         background: "#fff",
                     }}
                 >
-                    <h2 style={{ marginTop: 0 }}>Profile</h2>
+                    <h2 style={{ marginTop: 0 }}>{t("profile")}</h2>
 
                     <form action={updateAccountProfile}>
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="email">Email</label>
+                            <label htmlFor="email">{t("email")}</label>
                             <input
                                 id="email"
                                 type="email"
@@ -193,7 +211,7 @@ export default async function AccountPage({
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="name">Name</label>
+                            <label htmlFor="name">{t("name")}</label>
                             <input
                                 id="name"
                                 name="name"
@@ -209,7 +227,7 @@ export default async function AccountPage({
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="phone">Phone</label>
+                            <label htmlFor="phone">{t("phone")}</label>
                             <input
                                 id="phone"
                                 name="phone"
@@ -225,7 +243,7 @@ export default async function AccountPage({
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="phone2">Backup Phone</label>
+                            <label htmlFor="phone2">{t("backupPhone")}</label>
                             <input
                                 id="phone2"
                                 name="phone2"
@@ -239,7 +257,7 @@ export default async function AccountPage({
                             />
                         </div>
 
-                        <button type="submit">Save Profile</button>
+                        <button type="submit">{t("saveProfile")}</button>
                     </form>
                 </section>
 
@@ -251,17 +269,17 @@ export default async function AccountPage({
                         background: "#fff",
                     }}
                 >
-                    <h2 style={{ marginTop: 0 }}>Add Address</h2>
+                    <h2 style={{ marginTop: 0 }}>{t("addAddress")}</h2>
 
                     <form action={createAddress}>
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="fullAddress">Address</label>
+                            <label htmlFor="fullAddress">{t("address")}</label>
                             <textarea
                                 id="fullAddress"
                                 name="fullAddress"
                                 required
                                 rows={4}
-                                placeholder="Street, city, postal code"
+                                placeholder={t("streetCityPostalCode")}
                                 style={{
                                     display: "block",
                                     width: "100%",
@@ -278,22 +296,22 @@ export default async function AccountPage({
                                 name="isDefault"
                                 defaultChecked={user.addresses.length === 0}
                             />{" "}
-                            Set as default
+                            {t("setAsDefault")}
                         </label>
 
                         <div style={{ marginTop: 16 }}>
-                            <button type="submit">Add Address</button>
+                            <button type="submit">{t("addAddress")}</button>
                         </div>
                     </form>
                 </section>
             </div>
 
             <section style={{ marginTop: 24 }}>
-                <h2>Saved Addresses</h2>
+                <h2>{t("savedAddresses")}</h2>
 
                 {user.addresses.length === 0 ? (
                     <p style={{ color: "#666" }}>
-                        No saved addresses yet. Add one before checkout.
+                        {t("noSavedAddresses")}
                     </p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
@@ -315,7 +333,7 @@ export default async function AccountPage({
                                     />
 
                                     <label htmlFor={`address-${address.id}`}>
-                                        Address
+                                        {t("address")}
                                     </label>
                                     <textarea
                                         id={`address-${address.id}`}
@@ -334,7 +352,7 @@ export default async function AccountPage({
 
                                     {address.isDefault && (
                                         <p style={{ color: "#666" }}>
-                                            Default address
+                                            {t("defaultAddress")}
                                         </p>
                                     )}
 
@@ -346,7 +364,7 @@ export default async function AccountPage({
                                             flexWrap: "wrap",
                                         }}
                                     >
-                                        <button type="submit">Save Address</button>
+                                        <button type="submit">{t("saveAddress")}</button>
                                     </div>
                                 </form>
 
@@ -366,7 +384,7 @@ export default async function AccountPage({
                                                 value={address.id}
                                             />
                                             <button type="submit">
-                                                Make Default
+                                                {t("makeDefault")}
                                             </button>
                                         </form>
                                     )}
@@ -387,10 +405,10 @@ export default async function AccountPage({
             </section>
 
             <section style={{ marginTop: 24 }}>
-                <h2>Recent Orders</h2>
+                <h2>{t("recentOrders")}</h2>
 
                 {user.orders.length === 0 ? (
-                    <p style={{ color: "#666" }}>No orders yet.</p>
+                    <p style={{ color: "#666" }}>{t("noOrdersYet")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {user.orders.map((order) => {
@@ -429,7 +447,7 @@ export default async function AccountPage({
                                     >
                                         <div>
                                             <h3 style={{ margin: "0 0 8px" }}>
-                                                Order #{order.id}
+                                                {t("orderNumber", { id: order.id })}
                                             </h3>
                                             <p
                                                 style={{
@@ -446,7 +464,7 @@ export default async function AccountPage({
                                                         color: "#666",
                                                     }}
                                                 >
-                                                    Pickup:{" "}
+                                                    {t("pickup")}{" "}
                                                     {order.pickupTime.toLocaleString()}
                                                 </p>
                                             )}
@@ -457,7 +475,7 @@ export default async function AccountPage({
                                                         color: "#666",
                                                     }}
                                                 >
-                                                    Menu date:{" "}
+                                                    {t("menuDate")}:{" "}
                                                     {formatMenuDate(
                                                         toDateKey(
                                                             order.serviceDate
@@ -481,8 +499,12 @@ export default async function AccountPage({
                                     </div>
 
                                     <p style={{ color: "#666" }}>
-                                        {order.items.length} item
-                                        {order.items.length === 1 ? "" : "s"}
+                                        {t(
+                                            order.items.length === 1
+                                                ? "itemCount"
+                                                : "itemCountPlural",
+                                            { count: order.items.length }
+                                        )}
                                     </p>
 
                                     {canEditOrder && (
@@ -514,7 +536,7 @@ export default async function AccountPage({
                                                     <label
                                                         htmlFor={`pickup-hour-${order.id}`}
                                                     >
-                                                        Hour
+                                                        {t("hour")}
                                                         <select
                                                             id={`pickup-hour-${order.id}`}
                                                             name="pickupHour"
@@ -530,7 +552,7 @@ export default async function AccountPage({
                                                             }}
                                                         >
                                                             <option value="">
-                                                                Hour
+                                                                {t("hour")}
                                                             </option>
                                                             {pickupHourOptions.map(
                                                                 (hour) => (
@@ -548,7 +570,7 @@ export default async function AccountPage({
                                                     <label
                                                         htmlFor={`pickup-minute-${order.id}`}
                                                     >
-                                                        Minute
+                                                        {t("minute")}
                                                         <select
                                                             id={`pickup-minute-${order.id}`}
                                                             name="pickupMinute"
@@ -564,7 +586,7 @@ export default async function AccountPage({
                                                             }}
                                                         >
                                                             <option value="">
-                                                                Minute
+                                                                {t("minute")}
                                                             </option>
                                                             {pickupMinuteOptions.map(
                                                                 (minute) => (
@@ -585,7 +607,7 @@ export default async function AccountPage({
                                                 </div>
 
                                                 <button type="submit">
-                                                    Save Pickup Time
+                                                    {t("savePickupTime")}
                                                 </button>
                                             </form>
 

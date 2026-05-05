@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 
 /**
  * 下单成功页
@@ -12,22 +14,23 @@ export default async function CheckoutSuccessPage({
     searchParams: Promise<{ orderId?: string }>;
 }) {
     const { orderId } = await searchParams;
+    const t = createTranslator(await getLocale());
 
     return (
         <main style={{ maxWidth: 700, margin: "80px auto", padding: 24 }}>
-            <h1>Order Created</h1>
+            <h1>{t("orderCreated")}</h1>
 
             <p style={{ color: "#666" }}>
-                Your order has been created successfully.
+                {t("orderCreatedSuccess")}
             </p>
 
             <p>
-                <strong>Order ID:</strong> {orderId || "Unknown"}
+                <strong>{t("orderId")}</strong> {orderId || t("menuDateUnknown")}
             </p>
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Link href="/menu">Back to menu</Link>
-                <Link href="/cart">Back to cart</Link>
+                <Link href="/menu">{t("backToMenu")}</Link>
+                <Link href="/cart">{t("backToCart")}</Link>
             </div>
         </main>
     );

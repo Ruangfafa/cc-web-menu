@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "../../LanguageProvider";
+
 type DeleteSiteAddressButtonProps = {
     siteAddressName: string;
 };
@@ -7,24 +9,23 @@ type DeleteSiteAddressButtonProps = {
 export function DeleteSiteAddressButton({
     siteAddressName,
 }: DeleteSiteAddressButtonProps) {
+    const { t } = useLanguage();
+
     return (
         <button
+            className="menu-action-button menu-action-button-danger"
             type="submit"
             onClick={(event) => {
                 const confirmed = window.confirm(
-                    `Delete site address "${siteAddressName}"?`
+                    t("deleteItemConfirm", { name: siteAddressName })
                 );
 
                 if (!confirmed) {
                     event.preventDefault();
                 }
             }}
-            style={{
-                borderColor: "#b00020",
-                color: "#b00020",
-            }}
         >
-            Delete
+            {t("delete")}
         </button>
     );
 }

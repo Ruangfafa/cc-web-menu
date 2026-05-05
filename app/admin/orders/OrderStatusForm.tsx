@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useLanguage } from "../../LanguageProvider";
 import { updateOrderStatus } from "./actions";
 
 const paymentStatuses = ["PENDING_PAYMENT", "PAID"] as const;
@@ -21,21 +22,22 @@ type OrderStatusFormProps = {
     fulfillmentStatus: FulfillmentStatus;
 };
 
-function formatStatus(status: string) {
-    return status
-        .toLowerCase()
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-}
-
 export function OrderStatusForm({
     orderId,
     updatedAt,
     paymentStatus,
     fulfillmentStatus,
 }: OrderStatusFormProps) {
+    const { t } = useLanguage();
     const formRef = useRef<HTMLFormElement>(null);
+    const statusLabels = {
+        PENDING_PAYMENT: t("pendingPayment"),
+        PAID: t("paid"),
+        PREPARING: t("preparing"),
+        COMPLETED: t("completed"),
+        CANCELLED: t("cancelled"),
+        REFUNDED: t("refunded"),
+    } as const;
 
     return (
         <form
@@ -52,7 +54,7 @@ export function OrderStatusForm({
             <input type="hidden" name="updatedAt" value={updatedAt} />
 
             <label htmlFor={`payment-status-${orderId}`}>
-                Payment Status
+                {t("paymentStatus")}
                 <select
                     id={`payment-status-${orderId}`}
                     name="paymentStatus"
@@ -66,14 +68,14 @@ export function OrderStatusForm({
                 >
                     {paymentStatuses.map((status) => (
                         <option key={status} value={status}>
-                            {formatStatus(status)}
+                            {statusLabels[status]}
                         </option>
                     ))}
                 </select>
             </label>
 
             <label htmlFor={`fulfillment-status-${orderId}`}>
-                Order Status
+                {t("orderStatus")}
                 <select
                     id={`fulfillment-status-${orderId}`}
                     name="fulfillmentStatus"
@@ -87,7 +89,7 @@ export function OrderStatusForm({
                 >
                     {fulfillmentStatuses.map((status) => (
                         <option key={status} value={status}>
-                            {formatStatus(status)}
+                            {statusLabels[status]}
                         </option>
                     ))}
                 </select>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { useLanguage } from "../LanguageProvider";
 
 /**
  * 登录页面
@@ -20,6 +21,7 @@ import { signIn } from "next-auth/react";
  * 5. 登录成功后跳转首页
  */
 export default function LoginPage() {
+    const { t } = useLanguage();
     /**
      * email：用户输入的邮箱
      * password：用户输入的密码
@@ -62,7 +64,7 @@ export default function LoginPage() {
          * 如果 result.error 存在，说明登录失败
          */
         if (result?.error) {
-            setError("Invalid email or password");
+            setError(t("invalidEmailOrPassword"));
             return;
         }
 
@@ -74,11 +76,11 @@ export default function LoginPage() {
 
     return (
         <main style={{ maxWidth: 400, margin: "80px auto", padding: 24 }}>
-            <h1>Login</h1>
+            <h1>{t("login")}</h1>
 
             <form onSubmit={handleSubmit}>
                 <div style={{ marginBottom: 16 }}>
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="email">{t("email")}</label>
                     <input
                         id="email"
                         type="email"
@@ -95,7 +97,7 @@ export default function LoginPage() {
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">{t("password")}</label>
                     <input
                         id="password"
                         type="password"
@@ -126,7 +128,7 @@ export default function LoginPage() {
                         cursor: loading ? "not-allowed" : "pointer",
                     }}
                 >
-                    {loading ? "Logging in..." : "Login"}
+                    {loading ? t("loggingIn") : t("login")}
                 </button>
             </form>
         </main>

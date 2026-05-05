@@ -1,7 +1,15 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { addSubItemToOptionGroup } from "./actions";
+import { LanguageSwitcher } from "../../../LanguageSwitcher";
+import { ConfirmDeleteButton } from "../../ConfirmDeleteButton";
+import {
+    addSubItemToOptionGroup,
+    deleteOptionGroupItem,
+    updateOptionGroup,
+} from "./actions";
 
 /**
  * 价格格式化
@@ -28,6 +36,7 @@ export default async function AdminOptionGroupDetailPage({
                                                          }: {
     params: Promise<{ id: string }>;
 }) {
+    const t = createTranslator(await getLocale());
     /**
      * Next.js 16 中 params 是 Promise，
      * 所以这里需要 await。
@@ -95,23 +104,38 @@ export default async function AdminOptionGroupDetailPage({
      * 绑定 server action 的 optionGroupId 参数。
      */
     const addAction = addSubItemToOptionGroup.bind(null, optionGroupId);
+    const updateAction = updateOptionGroup.bind(null, optionGroupId);
 
     return (
-        <main style={{ maxWidth: 900, margin: "60px auto", padding: 24 }}>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
+                </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin/option-groups">
+                        {t("backToOptionGroups")}
+                    </a>
+                </div>
+            </section>
+
             <header style={{ marginBottom: 32 }}>
-                <h1>选项组详情：{optionGroup.name}</h1>
+                <h1>{t("optionGroupDetailTitle", { name: optionGroup.name })}</h1>
 
-                <p>{optionGroup.description || "无说明"}</p>
-
-                <p>
-                    <strong>规则：</strong>
-                    {optionGroup.isRequired ? "必选" : "非必选"}，最少选{" "}
-                    {optionGroup.minSelect} 个，最多选 {optionGroup.maxSelect} 个
-                </p>
+                <p>{optionGroup.description || t("noDescription")}</p>
 
                 <p>
-                    <a href="/admin/option-groups">返回选项组管理</a>
+                    <strong>{t("rulesLabel")}</strong>
+                    {t("groupRules", {
+                        type: optionGroup.isRequired
+                            ? t("required")
+                            : t("optional"),
+                        min: optionGroup.minSelect,
+                        max: optionGroup.maxSelect,
+                    })}
                 </p>
+
             </header>
 
             <section
@@ -122,17 +146,134 @@ export default async function AdminOptionGroupDetailPage({
                     marginBottom: 40,
                 }}
             >
-                <h2>添加附属项到这个选项组</h2>
+                <h2>{t("editOptionGroup")}</h2>
+
+                <form action={updateAction}>
+                    <div style={{ marginBottom: 16 }}>
+                        <label htmlFor="edit-name">{t("name")}</label>
+                        <input
+                            id="edit-name"
+                            name="name"
+                            type="text"
+                            defaultValue={optionGroup.name}
+                            required
+                            style={{
+                                display: "block",
+                                width: "100%",
+                                padding: 8,
+                                marginTop: 4,
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <label htmlFor="edit-description">{t("optionGroupDescription")}</label>
+                        <textarea
+                            id="edit-description"
+                            name="description"
+                            rows={3}
+                            defaultValue={optionGroup.description || ""}
+                            style={{
+                                display: "block",
+                                width: "100%",
+                                padding: 8,
+                                marginTop: 4,
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <label>
+                            <input
+                                name="isRequired"
+                                type="checkbox"
+                                defaultChecked={optionGroup.isRequired}
+                            />{" "}
+                            {t("isRequired")}
+                        </label>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <label htmlFor="edit-minSelect">{t("minSelectLabel")}</label>
+                        <input
+                            id="edit-minSelect"
+                            name="minSelect"
+                            type="number"
+                            min="0"
+                            defaultValue={optionGroup.minSelect}
+                            required
+                            style={{
+                                display: "block",
+                                width: "100%",
+                                padding: 8,
+                                marginTop: 4,
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <label htmlFor="edit-maxSelect">{t("maxSelectLabel")}</label>
+                        <input
+                            id="edit-maxSelect"
+                            name="maxSelect"
+                            type="number"
+                            min="0"
+                            defaultValue={optionGroup.maxSelect}
+                            required
+                            style={{
+                                display: "block",
+                                width: "100%",
+                                padding: 8,
+                                marginTop: 4,
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <label htmlFor="edit-sortOrder">{t("sortOrder")}</label>
+                        <input
+                            id="edit-sortOrder"
+                            name="sortOrder"
+                            type="number"
+                            defaultValue={optionGroup.sortOrder}
+                            required
+                            style={{
+                                display: "block",
+                                width: "100%",
+                                padding: 8,
+                                marginTop: 4,
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        className="menu-action-button menu-action-button-primary"
+                        type="submit"
+                    >
+                        {t("saveChanges")}
+                    </button>
+                </form>
+            </section>
+
+            <section
+                style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 10,
+                    padding: 20,
+                    marginBottom: 40,
+                }}
+            >
+                <h2>{t("addSubItemToOptionGroup")}</h2>
 
                 {subItems.length === 0 ? (
                     <p>
-                        还没有附属项。请先去{" "}
-                        <a href="/admin/sub-items">附属项管理</a> 添加。
+                        {t("noSubItemsForOptionGroup")}{" "}
+                        <a href="/admin/sub-items">{t("goToSubItems")}</a>。
                     </p>
                 ) : (
                     <form action={addAction}>
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="subItemId">选择附属项</label>
+                            <label htmlFor="subItemId">{t("selectSubItem")}</label>
 
                             <select
                                 id="subItemId"
@@ -145,7 +286,7 @@ export default async function AdminOptionGroupDetailPage({
                                     marginTop: 4,
                                 }}
                             >
-                                <option value="">请选择附属项</option>
+                                <option value="">{t("selectSubItemPlaceholder")}</option>
 
                                 {subItems.map((item) => (
                                     <option key={item.id} value={item.id}>
@@ -157,7 +298,7 @@ export default async function AdminOptionGroupDetailPage({
 
                         <div style={{ marginBottom: 16 }}>
                             <label htmlFor="priceDollars">
-                                这个选项在本组里的价格
+                                {t("optionPriceInGroup")}
                             </label>
 
                             <input
@@ -179,7 +320,7 @@ export default async function AdminOptionGroupDetailPage({
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="sortOrder">显示顺序</label>
+                            <label htmlFor="sortOrder">{t("sortOrder")}</label>
 
                             <input
                                 id="sortOrder"
@@ -199,7 +340,7 @@ export default async function AdminOptionGroupDetailPage({
                         <div style={{ marginBottom: 16 }}>
                             <label>
                                 <input name="isDefault" type="checkbox" />{" "}
-                                默认选中
+                                {t("isDefaultSelected")}
                             </label>
                         </div>
 
@@ -210,22 +351,22 @@ export default async function AdminOptionGroupDetailPage({
                                     type="checkbox"
                                     defaultChecked
                                 />{" "}
-                                可选
+                                {t("isAvailable")}
                             </label>
                         </div>
 
                         <button type="submit">
-                            添加到选项组
+                            {t("addToOptionGroup")}
                         </button>
                     </form>
                 )}
             </section>
 
             <section>
-                <h2>当前选项组里的选项</h2>
+                <h2>{t("currentOptionsInGroup")}</h2>
 
                 {optionGroup.options.length === 0 ? (
-                    <p>这个选项组目前还没有选项。</p>
+                    <p>{t("noOptionGroupItems")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {optionGroup.options.map((option) => (
@@ -240,24 +381,41 @@ export default async function AdminOptionGroupDetailPage({
                                 <h3>{option.subItem.name}</h3>
 
                                 <p>
-                                    <strong>价格：</strong>
+                                    <strong>{t("price")}</strong>
                                     {formatPrice(option.priceCents)}
                                 </p>
 
                                 <p>
-                                    <strong>默认选中：</strong>
-                                    {option.isDefault ? "是" : "否"}
+                                    <strong>{t("defaultSelected")}</strong>
+                                    {option.isDefault ? t("yes") : t("no")}
                                 </p>
 
                                 <p>
-                                    <strong>状态：</strong>
-                                    {option.isAvailable ? "可选" : "不可选"}
+                                    <strong>{t("status")}</strong>
+                                    {option.isAvailable
+                                        ? t("available")
+                                        : t("unavailable")}
                                 </p>
 
                                 <p>
-                                    <strong>排序：</strong>
+                                    <strong>{t("sortOrder")}:</strong>
                                     {option.sortOrder}
                                 </p>
+                                <form action={deleteOptionGroupItem}>
+                                    <input
+                                        type="hidden"
+                                        name="optionGroupId"
+                                        value={optionGroup.id}
+                                    />
+                                    <input
+                                        type="hidden"
+                                        name="optionGroupItemId"
+                                        value={option.id}
+                                    />
+                                    <ConfirmDeleteButton
+                                        itemName={option.subItem.name}
+                                    />
+                                </form>
                             </article>
                         ))}
                     </div>

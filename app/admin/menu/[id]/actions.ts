@@ -109,3 +109,30 @@ export async function addOptionGroupToMenuItem(
 
     redirect(`/admin/menu/${menuItemId}`);
 }
+
+export async function deleteMenuItemOptionGroup(formData: FormData) {
+    await requireAdmin();
+
+    const menuItemId = Number(formData.get("menuItemId"));
+    const menuItemOptionGroupId = Number(formData.get("menuItemOptionGroupId"));
+
+    if (!Number.isInteger(menuItemId) || menuItemId <= 0) {
+        throw new Error("Invalid menu item id.");
+    }
+
+    if (
+        !Number.isInteger(menuItemOptionGroupId) ||
+        menuItemOptionGroupId <= 0
+    ) {
+        throw new Error("Invalid menu item option group id.");
+    }
+
+    await prisma.menuItemOptionGroup.deleteMany({
+        where: {
+            id: menuItemOptionGroupId,
+            menuItemId,
+        },
+    });
+
+    redirect(`/admin/menu/${menuItemId}`);
+}

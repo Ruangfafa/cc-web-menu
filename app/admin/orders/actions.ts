@@ -119,3 +119,49 @@ export async function saveOrderComment(formData: FormData) {
 
     redirect("/admin/orders");
 }
+
+export async function deleteOrder(formData: FormData) {
+    await requireAdmin();
+
+    const orderId = Number(formData.get("orderId"));
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        throw new Error("Invalid order id.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+        const orderItems = await tx.orderItem.findMany({
+            where: {
+                orderId,
+            },
+            select: {
+                id: true,
+            },
+        });
+        const orderItemIds = orderItems.map((item) => item.id);
+
+        if (orderItemIds.length > 0) {
+            await tx.orderItemOption.deleteMany({
+                where: {
+                    orderItemId: {
+                        in: orderItemIds,
+                    },
+                },
+            });
+
+            await tx.orderItem.deleteMany({
+                where: {
+                    orderId,
+                },
+            });
+        }
+
+        await tx.order.delete({
+            where: {
+                id: orderId,
+            },
+        });
+    });
+
+    redirect("/admin/orders");
+}

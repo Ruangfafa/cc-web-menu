@@ -1,9 +1,12 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { saveOrderComment } from "./actions";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
+import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
+import { deleteOrder, saveOrderComment } from "./actions";
 import { OrderStatusForm } from "./OrderStatusForm";
 
 function formatPrice(priceCents: number) {
@@ -26,6 +29,7 @@ export default async function AdminOrdersPage({
 }: {
     searchParams: Promise<{ conflict?: string }>;
 }) {
+    const t = createTranslator(await getLocale());
     const { conflict } = await searchParams;
     const session = await auth();
 
@@ -50,16 +54,24 @@ export default async function AdminOrdersPage({
     });
 
     return (
-        <main style={{ maxWidth: 1100, margin: "60px auto", padding: 24 }}>
-            <header style={{ marginBottom: 24 }}>
-                <p style={{ margin: "0 0 12px" }}>
-                    <Link href="/admin">Back to admin</Link>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
                 </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin">
+                        {t("backToAdmin")}
+                    </a>
+                </div>
+            </section>
 
-                <h1 style={{ margin: "0 0 8px" }}>Order Management</h1>
+            <header style={{ marginBottom: 24 }}>
+                <h1 style={{ margin: "0 0 8px" }}>{t("orderManagement")}</h1>
 
                 <p style={{ color: "#666", margin: 0 }}>
-                    View and update customer orders.
+                    {t("ordersAdminDesc")}
                 </p>
             </header>
 
@@ -74,12 +86,12 @@ export default async function AdminOrdersPage({
                         margin: "0 0 16px",
                     }}
                 >
-                    订单已被其他管理员更新，请刷新后再改。
+                    {t("orderConflict")}
                 </p>
             )}
 
             {orders.length === 0 ? (
-                <p style={{ color: "#666" }}>No orders found.</p>
+                <p style={{ color: "#666" }}>{t("noOrdersYet")}</p>
             ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                     {orders.map((order) => (
@@ -103,11 +115,14 @@ export default async function AdminOrdersPage({
                             >
                                 <div>
                                     <p style={{ margin: "0 0 8px" }}>
-                                        <strong>Order #{order.id}</strong>
+                                        <strong>
+                                            {t("orderNumber", { id: order.id })}
+                                        </strong>
                                     </p>
 
                                     <p style={{ margin: "0 0 8px", color: "#666" }}>
-                                        Created: {order.createdAt.toLocaleString()}
+                                        {t("orderCreatedLabel")}{" "}
+                                        {order.createdAt.toLocaleString()}
                                     </p>
 
                                     {order.pickupTime && (
@@ -117,7 +132,7 @@ export default async function AdminOrdersPage({
                                                 color: "#666",
                                             }}
                                         >
-                                            Pickup:{" "}
+                                            {t("pickupLabel")}{" "}
                                             {order.pickupTime.toLocaleString()}
                                         </p>
                                     )}
@@ -129,7 +144,7 @@ export default async function AdminOrdersPage({
                                                 color: "#666",
                                             }}
                                         >
-                                            Menu date:{" "}
+                                            {t("menuDateLabel")}{" "}
                                             {formatMenuDate(
                                                 toDateKey(order.serviceDate)
                                             )}
@@ -137,7 +152,8 @@ export default async function AdminOrdersPage({
                                     )}
 
                                     <p style={{ margin: 0 }}>
-                                        Total: {formatPrice(order.totalCents)}
+                                        {t("orderTotalLabel")}{" "}
+                                        {formatPrice(order.totalCents)}
                                     </p>
                                 </div>
 
@@ -168,12 +184,12 @@ export default async function AdminOrdersPage({
                                         />
 
                                         <label htmlFor={`comment-${order.id}`}>
-                                            Comment
+                                            {t("comment")}
                                             <textarea
                                                 id={`comment-${order.id}`}
                                                 name="comment"
                                                 defaultValue={order.comment || ""}
-                                                placeholder="Add internal notes"
+                                                placeholder={t("addInternalNotes")}
                                                 rows={3}
                                                 style={{
                                                     display: "block",
@@ -188,40 +204,55 @@ export default async function AdminOrdersPage({
                                             type="submit"
                                             style={{ marginTop: 8, width: "100%" }}
                                         >
-                                            Save
+                                            {t("save")}
                                         </button>
+                                    </form>
+
+                                    <form action={deleteOrder}>
+                                        <input
+                                            type="hidden"
+                                            name="orderId"
+                                            value={order.id}
+                                        />
+                                        <ConfirmDeleteButton
+                                            itemName={t("orderNumber", {
+                                                id: order.id,
+                                            })}
+                                        />
                                     </form>
                                 </div>
                             </div>
 
                             <section style={{ marginBottom: 16 }}>
                                 <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>
-                                    Customer
+                                    {t("customer")}
                                 </h2>
 
                                 {order.user ? (
                                     <>
                                         <p style={{ margin: "0 0 6px" }}>
-                                            <strong>User:</strong> {order.user.name} (
+                                            <strong>{t("userLabel")}</strong>{" "}
+                                            {order.user.name} (
                                             {order.user.email})
                                         </p>
                                         <p style={{ margin: 0 }}>
-                                            <strong>Phone:</strong> {order.user.phone}
+                                            <strong>{t("phoneLabel")}</strong>{" "}
+                                            {order.user.phone}
                                         </p>
                                     </>
                                 ) : (
                                     <>
                                         <p style={{ margin: "0 0 6px" }}>
-                                            <strong>Guest:</strong>{" "}
-                                            {order.guestName || "Unknown"}
+                                            <strong>{t("guest")}:</strong>{" "}
+                                            {order.guestName || t("unknown")}
                                         </p>
                                         <p style={{ margin: "0 0 6px" }}>
-                                            <strong>Phone:</strong>{" "}
-                                            {order.guestPhone || "Unknown"}
+                                            <strong>{t("phoneLabel")}</strong>{" "}
+                                            {order.guestPhone || t("unknown")}
                                         </p>
                                         <p style={{ margin: 0 }}>
-                                            <strong>Address:</strong>{" "}
-                                            {order.guestAddress || "Unknown"}
+                                            <strong>{t("addressLabel")}</strong>{" "}
+                                            {order.guestAddress || t("unknown")}
                                         </p>
                                     </>
                                 )}
@@ -229,7 +260,7 @@ export default async function AdminOrdersPage({
 
                             <section>
                                 <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>
-                                    Items
+                                    {t("items")}
                                 </h2>
 
                                 <div style={{ display: "grid", gap: 12 }}>
@@ -275,7 +306,7 @@ export default async function AdminOrdersPage({
                                             )}
 
                                             <p style={{ margin: 0 }}>
-                                                Line total:{" "}
+                                                {t("lineTotal")}{" "}
                                                 {formatPrice(item.totalCentsSnapshot)}
                                             </p>
                                         </div>

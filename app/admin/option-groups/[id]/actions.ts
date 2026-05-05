@@ -113,3 +113,77 @@ export async function addSubItemToOptionGroup(
 
     redirect(`/admin/option-groups/${optionGroupId}`);
 }
+
+export async function deleteOptionGroupItem(formData: FormData) {
+    await requireAdmin();
+
+    const optionGroupId = Number(formData.get("optionGroupId"));
+    const optionGroupItemId = Number(formData.get("optionGroupItemId"));
+
+    if (!Number.isInteger(optionGroupId) || optionGroupId <= 0) {
+        throw new Error("Invalid option group id.");
+    }
+
+    if (!Number.isInteger(optionGroupItemId) || optionGroupItemId <= 0) {
+        throw new Error("Invalid option group item id.");
+    }
+
+    await prisma.optionGroupItem.deleteMany({
+        where: {
+            id: optionGroupItemId,
+            optionGroupId,
+        },
+    });
+
+    redirect(`/admin/option-groups/${optionGroupId}`);
+}
+
+export async function updateOptionGroup(
+    optionGroupId: number,
+    formData: FormData
+) {
+    await requireAdmin();
+
+    const name = String(formData.get("name") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const isRequired = formData.get("isRequired") === "on";
+    const minSelect = Number(formData.get("minSelect") || 0);
+    const maxSelect = Number(formData.get("maxSelect") || 1);
+    const sortOrder = Number(formData.get("sortOrder") || 0);
+
+    if (!Number.isInteger(optionGroupId) || optionGroupId <= 0) {
+        throw new Error("Invalid option group id.");
+    }
+
+    if (!name) {
+        throw new Error("Name is required.");
+    }
+
+    if (!Number.isInteger(minSelect) || minSelect < 0) {
+        throw new Error("Invalid minimum selection.");
+    }
+
+    if (!Number.isInteger(maxSelect) || maxSelect < 0 || maxSelect < minSelect) {
+        throw new Error("Invalid maximum selection.");
+    }
+
+    if (!Number.isInteger(sortOrder)) {
+        throw new Error("Invalid sort order.");
+    }
+
+    await prisma.optionGroup.update({
+        where: {
+            id: optionGroupId,
+        },
+        data: {
+            name,
+            description: description || null,
+            isRequired,
+            minSelect,
+            maxSelect,
+            sortOrder,
+        },
+    });
+
+    redirect(`/admin/option-groups/${optionGroupId}`);
+}

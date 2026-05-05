@@ -1,7 +1,10 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { formatMenuDate, todayDateKey, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
 import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
 import { createMenuItem, deleteMenuItem } from "./actions";
 
@@ -29,6 +32,7 @@ function formatPrice(priceCents: number) {
  * - menu_item_option_groups
  */
 export default async function AdminMenuPage() {
+    const t = createTranslator(await getLocale());
     const session = await auth();
     const todayKey = todayDateKey();
 
@@ -75,18 +79,23 @@ export default async function AdminMenuPage() {
     });
 
     return (
-        <main style={{ maxWidth: 1000, margin: "60px auto", padding: 24 }}>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
+                </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin">
+                        {t("backToAdmin")}
+                    </a>
+                </div>
+            </section>
             <header style={{ marginBottom: 32 }}>
-                <h1>菜单配置</h1>
+                <h1>{t("menuConfiguration")}</h1>
 
-                <p>
-                    这里管理真正显示给顾客的 menu_items。
-                    基础菜品来自 general_items。
-                </p>
+                <p>{t("menuConfigurationAdminDesc")}</p>
 
-                <p>
-                    <a href="/admin">返回 Admin Dashboard</a>
-                </p>
             </header>
 
             <section
@@ -97,19 +106,19 @@ export default async function AdminMenuPage() {
                     marginBottom: 40,
                 }}
             >
-                <h2>添加菜品到菜单</h2>
+                <h2>{t("addMenuItemToMenu")}</h2>
 
                 {mainItems.length === 0 ? (
                     <p>
-                        还没有可用的基础菜品。请先去{" "}
-                        <a href="/admin/general-items">基础菜品管理</a>{" "}
-                        添加菜品。
+                        {t("noAvailableGeneralItems")}{" "}
+                        <a href="/admin/general-items">{t("goToGeneralItems")}</a>
+                        。
                     </p>
                 ) : (
                     <form action={createMenuItem}>
                         <div style={{ marginBottom: 16 }}>
                             <label htmlFor="mainItemId">
-                                选择基础菜品
+                                {t("selectGeneralItem")}
                             </label>
 
                             <select
@@ -124,7 +133,7 @@ export default async function AdminMenuPage() {
                                 }}
                             >
                                 <option value="">
-                                    请选择基础菜品
+                                    {t("selectGeneralItemPlaceholder")}
                                 </option>
 
                                 {mainItems.map((item) => (
@@ -138,14 +147,14 @@ export default async function AdminMenuPage() {
 
                         <div style={{ marginBottom: 16 }}>
                             <label htmlFor="displayName">
-                                菜单显示名，可选
+                                {t("menuDisplayNameOptional")}
                             </label>
 
                             <input
                                 id="displayName"
                                 name="displayName"
                                 type="text"
-                                placeholder="为空则使用基础菜品名称"
+                                placeholder={t("menuDisplayNamePlaceholder")}
                                 style={{
                                     display: "block",
                                     width: "100%",
@@ -157,14 +166,14 @@ export default async function AdminMenuPage() {
 
                         <div style={{ marginBottom: 16 }}>
                             <label htmlFor="displayDescription">
-                                菜单显示描述，可选
+                                {t("menuDisplayDescriptionOptional")}
                             </label>
 
                             <textarea
                                 id="displayDescription"
                                 name="displayDescription"
                                 rows={3}
-                                placeholder="为空则使用基础菜品介绍"
+                                placeholder={t("menuDisplayDescriptionPlaceholder")}
                                 style={{
                                     display: "block",
                                     width: "100%",
@@ -175,7 +184,7 @@ export default async function AdminMenuPage() {
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="availableDate">Menu date</label>
+                            <label htmlFor="availableDate">{t("availableDateLabel")}</label>
 
                             <input
                                 id="availableDate"
@@ -193,7 +202,7 @@ export default async function AdminMenuPage() {
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="sortOrder">显示顺序</label>
+                            <label htmlFor="sortOrder">{t("sortOrder")}</label>
 
                             <input
                                 id="sortOrder"
@@ -216,22 +225,22 @@ export default async function AdminMenuPage() {
                                     type="checkbox"
                                     defaultChecked
                                 />{" "}
-                                显示在菜单
+                                {t("showOnMenu")}
                             </label>
                         </div>
 
                         <button type="submit">
-                            添加到菜单
+                            {t("addToMenu")}
                         </button>
                     </form>
                 )}
             </section>
 
             <section>
-                <h2>已有菜单项</h2>
+                <h2>{t("existingMenuItems")}</h2>
 
                 {menuItems.length === 0 ? (
-                    <p>目前还没有菜单项。</p>
+                    <p>{t("noMenuItemsAdmin")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {menuItems.map((item) => {
@@ -241,7 +250,7 @@ export default async function AdminMenuPage() {
                             const displayDescription =
                                 item.displayDescription ||
                                 item.mainItem.description ||
-                                "无介绍";
+                                t("noDescription");
 
                             return (
                                 <article
@@ -257,40 +266,42 @@ export default async function AdminMenuPage() {
                                     <p>{displayDescription}</p>
 
                                     <p>
-                                        <strong>基础菜品：</strong>
+                                        <strong>{t("baseDish")}</strong>
                                         {item.mainItem.name}
                                     </p>
 
                                     <p>
-                                        <strong>基础价格：</strong>
+                                        <strong>{t("basePrice")}:</strong>
                                         {formatPrice(item.mainItem.priceCents)}
                                     </p>
 
                                     <p>
-                                        <strong>Menu date: </strong>
+                                        <strong>{t("menuDateLabel")} </strong>
                                         {formatMenuDate(
                                             toDateKey(item.availableDate)
                                         )}
                                     </p>
 
                                     <p>
-                                        <strong>排序：</strong>
+                                        <strong>{t("sortOrder")}:</strong>
                                         {item.sortOrder}
                                     </p>
 
                                     <p>
-                                        <strong>状态：</strong>
+                                        <strong>{t("status")}</strong>
                                         {item.isActive
-                                            ? "显示"
-                                            : "隐藏"}
+                                            ? t("active")
+                                            : t("inactive")}
                                     </p>
 
-                                    <p>
-                                        <a href={`/admin/menu/${item.id}`}>
-                                            配置这个菜单项的选项组
+                                    <div className="admin-item-actions">
+                                        <a
+                                            className="menu-action-button"
+                                            href={`/admin/menu/${item.id}`}
+                                        >
+                                            {t("configureMenuItemOptions")}
                                         </a>
-                                    </p>
-                                    <form action={deleteMenuItem}>
+                                        <form action={deleteMenuItem}>
                                         <input
                                             type="hidden"
                                             name="menuItemId"
@@ -299,7 +310,8 @@ export default async function AdminMenuPage() {
                                         <ConfirmDeleteButton
                                             itemName={displayName}
                                         />
-                                    </form>
+                                        </form>
+                                    </div>
                                 </article>
                             );
                         })}

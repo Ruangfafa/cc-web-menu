@@ -9,6 +9,7 @@ import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useLanguage } from "../LanguageProvider";
 
 type CheckoutUserAddress = {
     id: number;
@@ -64,6 +65,7 @@ export default function CheckoutClient({
     siteAddresses,
     userProfile,
 }: CheckoutClientProps) {
+    const { t } = useLanguage();
     const router = useRouter();
     const cartItems = useSyncExternalStore(subscribeCart, readCart, () => []);
 
@@ -161,7 +163,7 @@ export default function CheckoutClient({
         setSubmitting(false);
 
         if (!response.ok || !result.success || !result.orderId) {
-            setSubmitError(result.error || "Failed to create order.");
+            setSubmitError(result.error || t("failedToCreateOrder"));
             return;
         }
 
@@ -186,39 +188,38 @@ export default function CheckoutClient({
                 }}
             >
                 <h2 style={{ marginTop: 0 }}>
-                    {isLoggedIn ? "Account Information" : "Guest Information"}
+                    {isLoggedIn ? t("accountInformation") : t("guestInformation")}
                 </h2>
 
                 {isLoggedIn && userProfile ? (
                     <>
                         <p style={{ margin: "0 0 8px" }}>
-                            <strong>Name:</strong> {userProfile.name}
+                            <strong>{t("name")}:</strong> {userProfile.name}
                         </p>
 
                         <p style={{ margin: "0 0 8px" }}>
-                            <strong>Email:</strong> {userProfile.email}
+                            <strong>{t("email")}:</strong> {userProfile.email}
                         </p>
 
                         <p style={{ margin: "0 0 16px" }}>
-                            <strong>Phone:</strong> {userProfile.phone}
+                            <strong>{t("phone")}:</strong> {userProfile.phone}
                         </p>
 
                         <section>
                             <h3>
                                 {useSiteAddressMode
-                                    ? "Select Site Address"
-                                    : "Select Delivery Address"}
+                                    ? t("selectSiteAddress")
+                                    : t("selectDeliveryAddress")}
                             </h3>
 
                             {useSiteAddressMode ? (
                                 siteAddresses.length === 0 ? (
                                     <div>
                                         <p style={{ color: "#666" }}>
-                                            No site address is available.
+                                            {t("noSiteAddress")}
                                         </p>
                                         <p style={{ color: "#666" }}>
-                                            Please ask admin to configure site
-                                            addresses.
+                                            {t("askAdminSiteAddresses")}
                                         </p>
                                     </div>
                                 ) : (
@@ -262,11 +263,10 @@ export default function CheckoutClient({
                             ) : userProfile.addresses.length === 0 ? (
                                 <div>
                                     <p style={{ color: "#666" }}>
-                                        No saved address found for this account.
+                                        {t("noSavedAddressForAccount")}
                                     </p>
                                     <p style={{ color: "#666" }}>
-                                        Please add an address before placing an
-                                        order.
+                                        {t("addAddressBeforeOrder")}
                                     </p>
                                 </div>
                             ) : (
@@ -301,7 +301,7 @@ export default function CheckoutClient({
                                             <span>
                                                 {address.fullAddress}
                                                 {address.isDefault
-                                                    ? " (Default)"
+                                                    ? ` (${t("default")})`
                                                     : ""}
                                             </span>
                                         </label>
@@ -313,14 +313,14 @@ export default function CheckoutClient({
                 ) : (
                     <form>
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="guestName">Name</label>
+                            <label htmlFor="guestName">{t("name")}</label>
                             <input
                                 id="guestName"
                                 value={guestName}
                                 onChange={(event) =>
                                     setGuestName(event.target.value)
                                 }
-                                placeholder="Guest full name"
+                                placeholder={t("guestFullName")}
                                 style={{
                                     display: "block",
                                     width: "100%",
@@ -331,14 +331,14 @@ export default function CheckoutClient({
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label htmlFor="guestPhone">Phone</label>
+                            <label htmlFor="guestPhone">{t("phone")}</label>
                             <input
                                 id="guestPhone"
                                 value={guestPhone}
                                 onChange={(event) =>
                                     setGuestPhone(event.target.value)
                                 }
-                                placeholder="Guest phone number"
+                                placeholder={t("guestPhoneNumber")}
                                 style={{
                                     display: "block",
                                     width: "100%",
@@ -350,11 +350,11 @@ export default function CheckoutClient({
 
                         {useSiteAddressMode ? (
                             <div style={{ marginBottom: 16 }}>
-                                <label>Select Site Address</label>
+                                <label>{t("selectSiteAddress")}</label>
 
                                 {siteAddresses.length === 0 ? (
                                     <p style={{ color: "#666", marginTop: 4 }}>
-                                        No site address is available.
+                                        {t("noSiteAddress")}
                                     </p>
                                 ) : (
                                     <div
@@ -403,14 +403,14 @@ export default function CheckoutClient({
                             </div>
                         ) : (
                             <div style={{ marginBottom: 16 }}>
-                                <label htmlFor="guestAddress">Address</label>
+                                <label htmlFor="guestAddress">{t("address")}</label>
                                 <textarea
                                     id="guestAddress"
                                     value={guestAddress}
                                     onChange={(event) =>
                                         setGuestAddress(event.target.value)
                                     }
-                                    placeholder="Delivery address"
+                                    placeholder={t("deliveryAddress")}
                                     rows={4}
                                     style={{
                                         display: "block",
@@ -433,11 +433,11 @@ export default function CheckoutClient({
                             borderTop: "1px solid #eee",
                         }}
                     >
-                        <h3>Pickup Time</h3>
+                        <h3>{t("pickupTime")}</h3>
 
                         {cartServiceDate && (
                             <p style={{ color: "#666" }}>
-                                Pickup date: {formatMenuDate(cartServiceDate)}
+                                {t("pickupDate")} {formatMenuDate(cartServiceDate)}
                             </p>
                         )}
 
@@ -450,7 +450,7 @@ export default function CheckoutClient({
                             }}
                         >
                             <label htmlFor="pickupHour">
-                                Hour
+                                {t("hour")}
                                 <select
                                     id="pickupHour"
                                     value={pickupHour}
@@ -465,7 +465,7 @@ export default function CheckoutClient({
                                         marginTop: 4,
                                     }}
                                 >
-                                    <option value="">Hour</option>
+                                    <option value="">{t("hour")}</option>
                                     {pickupHourOptions.map((hour) => (
                                         <option key={hour} value={hour}>
                                             {hour}
@@ -475,7 +475,7 @@ export default function CheckoutClient({
                             </label>
 
                             <label htmlFor="pickupMinute">
-                                Minute
+                                {t("minute")}
                                 <select
                                     id="pickupMinute"
                                     value={pickupMinute}
@@ -490,7 +490,7 @@ export default function CheckoutClient({
                                         marginTop: 4,
                                     }}
                                 >
-                                    <option value="">Minute</option>
+                                    <option value="">{t("minute")}</option>
                                     {pickupMinuteOptions.map((minute) => (
                                         <option key={minute} value={minute}>
                                             {minute}
@@ -501,7 +501,7 @@ export default function CheckoutClient({
                         </div>
 
                         <p style={{ color: "#666" }}>
-                            Pickup hour and minute are required for this order.
+                            {t("pickupTimeRequired")}
                         </p>
                     </section>
                 )}
@@ -513,10 +513,10 @@ export default function CheckoutClient({
                         borderTop: "1px solid #eee",
                     }}
                 >
-                    <h3>Next Step</h3>
+                    <h3>{t("nextStep")}</h3>
 
                     <p style={{ color: "#666" }}>
-                        Submit the current cart as a real order.
+                        {t("submitCartAsOrder")}
                     </p>
 
                     {submitError && (
@@ -541,7 +541,7 @@ export default function CheckoutClient({
                                     : "pointer",
                         }}
                     >
-                        {submitting ? "Submitting..." : "Place Order"}
+                        {submitting ? t("submitting") : t("placeOrder")}
                     </button>
                 </section>
             </section>
@@ -555,25 +555,25 @@ export default function CheckoutClient({
                     alignSelf: "start",
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Order Summary</h2>
+                <h2 style={{ marginTop: 0 }}>{t("orderSummary")}</h2>
 
                 {hasCartItems && (
                     <p style={{ color: "#666", marginTop: 0 }}>
-                        Menu date:{" "}
+                        {t("menuDate")}:{" "}
                         {cartHasSingleServiceDate
                             ? formatMenuDate(cartServiceDate)
-                            : "Mixed dates are not allowed"}
+                            : t("mixedDatesNotAllowed")}
                     </p>
                 )}
 
                 {!hasCartItems ? (
                     <>
                         <p style={{ color: "#666" }}>
-                            Your cart is empty. Please add items before checkout.
+                            {t("cartEmptyCheckout")}
                         </p>
 
                         <p style={{ marginBottom: 0 }}>
-                            <Link href="/menu">Back to menu</Link>
+                            <Link href="/menu">{t("backToMenu")}</Link>
                         </p>
                     </>
                 ) : (
@@ -625,7 +625,7 @@ export default function CheckoutClient({
                                     )}
 
                                     <p style={{ margin: 0 }}>
-                                        Line total:{" "}
+                                        {t("lineTotal")}{" "}
                                         {formatPrice(
                                             item.totalPriceCentsSnapshot *
                                                 item.quantity
@@ -649,7 +649,7 @@ export default function CheckoutClient({
                                     fontSize: 18,
                                 }}
                             >
-                                Subtotal: {formatPrice(subtotalCents)}
+                                {t("subtotal")} {formatPrice(subtotalCents)}
                             </p>
 
                             <div
@@ -659,8 +659,8 @@ export default function CheckoutClient({
                                     flexWrap: "wrap",
                                 }}
                             >
-                                <Link href="/cart">Edit cart</Link>
-                                <Link href="/menu">Continue shopping</Link>
+                                <Link href="/cart">{t("editCart")}</Link>
+                                <Link href="/menu">{t("continueShoppingLower")}</Link>
                             </div>
                         </div>
                     </>

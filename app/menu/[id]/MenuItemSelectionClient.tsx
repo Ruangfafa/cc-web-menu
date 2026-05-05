@@ -2,6 +2,7 @@
 
 import { addCartItem, type CartItem } from "@/lib/cart";
 import { useMemo, useState } from "react";
+import { useLanguage } from "../../LanguageProvider";
 
 type MenuItemSelectionData = {
     id: number;
@@ -73,6 +74,7 @@ export default function MenuItemSelectionClient({
     menuItem: MenuItemSelectionData;
     serviceDate: string;
 }) {
+    const { t } = useLanguage();
     const [selectedOptions, setSelectedOptions] = useState<SelectedOptionsState>(
         () => buildInitialSelections(menuItem)
     );
@@ -94,7 +96,7 @@ export default function MenuItemSelectionClient({
                     priceCents: option.priceCents,
                 }));
         });
-    }, [menuItem.optionGroups, selectedOptions]);
+    }, [menuItem.optionGroups, selectedOptions, t]);
 
     const totalPriceCents = useMemo(() => {
         return (
@@ -113,14 +115,20 @@ export default function MenuItemSelectionClient({
 
             if (selectedCount < group.minSelect) {
                 return [
-                    `${group.name} needs at least ${
-                        group.minSelect - selectedCount
-                    } more selection(s).`,
+                    t("needsMoreSelections", {
+                        name: group.name,
+                        count: group.minSelect - selectedCount,
+                    }),
                 ];
             }
 
             if (selectedCount > group.maxSelect) {
-                return [`${group.name} allows at most ${group.maxSelect}.`];
+                return [
+                    t("allowsAtMost", {
+                        name: group.name,
+                        count: group.maxSelect,
+                    }),
+                ];
             }
 
             return [];
@@ -171,7 +179,7 @@ export default function MenuItemSelectionClient({
 
     function handleAddToCart() {
         if (!isSelectionValid) {
-            setAddToCartMessage("Please fix the validation errors first.");
+            setAddToCartMessage(t("fixValidationErrors"));
             return;
         }
 
@@ -203,7 +211,7 @@ export default function MenuItemSelectionClient({
             return;
         }
 
-        setAddToCartMessage(`Added to cart for ${serviceDate}.`);
+        setAddToCartMessage(t("addedToCartFor", { date: serviceDate }));
     }
 
     return (
@@ -218,15 +226,17 @@ export default function MenuItemSelectionClient({
                 }}
             >
                 <p style={{ margin: "0 0 8px", fontWeight: "bold" }}>
-                    Current Total: {formatPrice(totalPriceCents)}
+                    {t("currentTotal")}: {formatPrice(totalPriceCents)}
                 </p>
 
                 <p style={{ margin: 0, color: "#666" }}>
-                    Menu date {serviceDate}. Base{" "}
-                    {formatPrice(menuItem.mainItem.priceCents)}, options{" "}
-                    {formatPrice(
-                        totalPriceCents - menuItem.mainItem.priceCents
-                    )}
+                    {t("itemPriceSummary", {
+                        date: serviceDate,
+                        base: formatPrice(menuItem.mainItem.priceCents),
+                        options: formatPrice(
+                            totalPriceCents - menuItem.mainItem.priceCents
+                        ),
+                    })}
                 </p>
             </div>
 
@@ -252,8 +262,13 @@ export default function MenuItemSelectionClient({
                             <h2 style={{ margin: "0 0 8px" }}>{group.name}</h2>
 
                             <p style={{ margin: "0 0 8px", color: "#444" }}>
-                                {group.isRequired ? "Required" : "Optional"},
-                                min {group.minSelect}, max {group.maxSelect}
+                                {t("groupRules", {
+                                    type: group.isRequired
+                                        ? t("required")
+                                        : t("optional"),
+                                    min: group.minSelect,
+                                    max: group.maxSelect,
+                                })}
                             </p>
 
                             {group.description && (
@@ -263,15 +278,15 @@ export default function MenuItemSelectionClient({
                             )}
 
                             <p style={{ margin: "0 0 12px", color: "#666" }}>
-                                Selected {selectedCount}
+                                {t("selectedCount", { count: selectedCount })}
                                 {isSingleSelect
-                                    ? ", single choice group"
-                                    : ", multi choice group"}
+                                    ? t("singleChoiceGroup")
+                                    : t("multiChoiceGroup")}
                             </p>
 
                             {group.options.length === 0 ? (
                                 <p style={{ color: "#999", margin: 0 }}>
-                                    No options available in this group.
+                                    {t("noOptionsInGroup")}
                                 </p>
                             ) : (
                                 <div style={{ display: "grid", gap: 10 }}>
@@ -327,7 +342,7 @@ export default function MenuItemSelectionClient({
                                                 <span style={{ flex: 1 }}>
                                                     {option.subItem.name}
                                                     {option.isDefault
-                                                        ? " (Default)"
+                                                        ? ` (${t("default")})`
                                                         : ""}
                                                 </span>
 
@@ -351,8 +366,12 @@ export default function MenuItemSelectionClient({
                                     }}
                                 >
                                     {isBelowMin
-                                        ? `Please select at least ${group.minSelect}.`
-                                        : `Please select at most ${group.maxSelect}.`}
+                                        ? t("pleaseSelectAtLeast", {
+                                              count: group.minSelect,
+                                          })
+                                        : t("pleaseSelectAtMost", {
+                                              count: group.maxSelect,
+                                          })}
                                 </p>
                             )}
                         </article>
@@ -369,10 +388,10 @@ export default function MenuItemSelectionClient({
                     background: "#fff",
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Add To Cart</h2>
+                <h2 style={{ marginTop: 0 }}>{t("addToCart")}</h2>
 
                 <p style={{ color: "#666" }}>
-                    This step stores a cart snapshot in browser localStorage.
+                    {t("addToCartHelp")}
                 </p>
 
                 {validationErrors.length > 0 && (
@@ -396,7 +415,7 @@ export default function MenuItemSelectionClient({
                         cursor: isSelectionValid ? "pointer" : "not-allowed",
                     }}
                 >
-                    Add to Cart
+                    {t("addToCart")}
                 </button>
 
                 {addToCartMessage && (
@@ -420,11 +439,11 @@ export default function MenuItemSelectionClient({
                     background: "#fafafa",
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Selection Summary</h2>
+                <h2 style={{ marginTop: 0 }}>{t("selectionSummary")}</h2>
 
                 {selectedOptionDetails.length === 0 ? (
                     <p style={{ color: "#666", margin: 0 }}>
-                        No extra options selected yet.
+                        {t("noExtraOptionsSelectedYet")}
                     </p>
                 ) : (
                     <ul style={{ margin: 0, paddingLeft: 20 }}>

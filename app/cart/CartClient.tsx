@@ -10,6 +10,7 @@ import {
 import { formatMenuDate } from "@/lib/menu-date";
 import Link from "next/link";
 import { useMemo, useSyncExternalStore } from "react";
+import { useLanguage } from "../LanguageProvider";
 
 function formatPrice(priceCents: number) {
     return `$${(priceCents / 100).toFixed(2)}`;
@@ -30,6 +31,7 @@ function formatPrice(priceCents: number) {
  * 服务端页面无法直接读取这份状态。
  */
 export default function CartClient() {
+    const { t } = useLanguage();
     const cartItems = useSyncExternalStore(subscribeCart, readCart, () => []);
 
     const subtotalCents = useMemo(() => {
@@ -74,9 +76,9 @@ export default function CartClient() {
                     background: "#fff",
                 }}
             >
-                <p style={{ marginTop: 0 }}>Your cart is empty.</p>
+                <p style={{ marginTop: 0 }}>{t("cartEmpty")}</p>
                 <p style={{ marginBottom: 0 }}>
-                    <Link href="/menu">Back to menu</Link>
+                    <Link href="/menu">{t("backToMenu")}</Link>
                 </p>
             </section>
         );
@@ -98,25 +100,25 @@ export default function CartClient() {
                         <h2 style={{ margin: "0 0 8px" }}>{item.nameSnapshot}</h2>
 
                         <p style={{ margin: "0 0 8px", color: "#666" }}>
-                            Menu date:{" "}
+                            {t("menuDate")}:{" "}
                             {item.serviceDate
                                 ? formatMenuDate(item.serviceDate)
-                                : "Unknown"}
+                                : t("menuDateUnknown")}
                         </p>
 
                         <p style={{ margin: "0 0 8px", color: "#666" }}>
-                            Base price:{" "}
+                            {t("basePriceLabel")}{" "}
                             {formatPrice(item.basePriceCentsSnapshot)}
                         </p>
 
                         {item.selectedOptions.length === 0 ? (
                             <p style={{ margin: "0 0 12px", color: "#666" }}>
-                                No extra options selected.
+                                {t("noExtraOptionsSelected")}
                             </p>
                         ) : (
                             <div style={{ marginBottom: 12 }}>
                                 <p style={{ margin: "0 0 8px", fontWeight: "bold" }}>
-                                    Selected options
+                                    {t("selectedOptions")}
                                 </p>
 
                                 <ul style={{ margin: 0, paddingLeft: 20 }}>
@@ -136,7 +138,7 @@ export default function CartClient() {
                         )}
 
                         <p style={{ margin: "0 0 12px", fontWeight: "bold" }}>
-                            Unit total:{" "}
+                            {t("unitTotal")}{" "}
                             {formatPrice(item.totalPriceCentsSnapshot)}
                         </p>
 
@@ -149,7 +151,7 @@ export default function CartClient() {
                                 flexWrap: "wrap",
                             }}
                         >
-                            <span>Quantity:</span>
+                            <span>{t("quantity")}</span>
 
                             <button
                                 type="button"
@@ -183,12 +185,12 @@ export default function CartClient() {
                                 onClick={() => handleRemove(item.cartItemId)}
                                 style={{ marginLeft: 8 }}
                             >
-                                Remove
+                                {t("remove")}
                             </button>
                         </div>
 
                         <p style={{ margin: 0 }}>
-                            Line total:{" "}
+                            {t("lineTotal")}{" "}
                             {formatPrice(
                                 item.totalPriceCentsSnapshot * item.quantity
                             )}
@@ -206,29 +208,39 @@ export default function CartClient() {
                     marginTop: 24,
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Order Summary</h2>
+                <h2 style={{ marginTop: 0 }}>{t("orderSummary")}</h2>
 
                 <p style={{ fontWeight: "bold", fontSize: 18 }}>
-                    Subtotal: {formatPrice(subtotalCents)}
+                    {t("subtotal")} {formatPrice(subtotalCents)}
                 </p>
 
                 {!cartHasSingleServiceDate && (
                     <p style={{ color: "#b00020" }}>
-                        This cart contains mixed or unknown menu dates. Remove
-                        older items before checkout.
+                        {t("mixedDatesCartWarning")}
                     </p>
                 )}
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <Link href="/menu">Continue Shopping</Link>
+                    <Link className="menu-action-button" href="/menu">
+                        {t("continueShopping")}
+                    </Link>
                     {cartHasSingleServiceDate ? (
-                        <Link href="/checkout">Checkout</Link>
+                        <Link
+                            className="menu-action-button menu-action-button-primary"
+                            href="/checkout"
+                        >
+                            {t("checkout")}
+                        </Link>
                     ) : (
-                        <span style={{ color: "#666" }}>Checkout unavailable</span>
+                        <span style={{ color: "#666" }}>{t("checkoutUnavailable")}</span>
                     )}
 
-                    <button type="button" onClick={handleClearCart}>
-                        Clear Cart
+                    <button
+                        className="menu-action-button menu-action-button-danger"
+                        type="button"
+                        onClick={handleClearCart}
+                    >
+                        {t("clearCart")}
                     </button>
                 </div>
             </section>

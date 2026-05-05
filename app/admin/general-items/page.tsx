@@ -1,6 +1,9 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
 import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
 import { createMainItem, deleteMainItem } from "./actions";
 
@@ -28,6 +31,7 @@ function formatPrice(priceCents: number) {
  * 不管理 MenuItem。
  */
 export default async function AdminGeneralItemsPage() {
+    const t = createTranslator(await getLocale());
     /**
      * 1. 检查管理员权限
      */
@@ -51,14 +55,22 @@ export default async function AdminGeneralItemsPage() {
     });
 
     return (
-        <main style={{ maxWidth: 900, margin: "60px auto", padding: 24 }}>
-            <header style={{ marginBottom: 32 }}>
-                <h1>基础菜品管理</h1>
-                <p>这里管理 general_items，也就是基础商品库。</p>
-
-                <p>
-                    <a href="/admin">返回 Admin Dashboard</a>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
                 </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin">
+                        {t("backToAdmin")}
+                    </a>
+                </div>
+            </section>
+            <header style={{ marginBottom: 32 }}>
+                <h1>{t("generalItemManagement")}</h1>
+                <p>{t("generalItemsAdminDesc")}</p>
+
             </header>
 
             <section
@@ -69,11 +81,11 @@ export default async function AdminGeneralItemsPage() {
                     marginBottom: 40,
                 }}
             >
-                <h2>新增基础菜品</h2>
+                <h2>{t("addGeneralItem")}</h2>
 
                 <form action={createMainItem}>
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="name">菜品名称</label>
+                        <label htmlFor="name">{t("dishName")}</label>
                         <input
                             id="name"
                             name="name"
@@ -89,7 +101,7 @@ export default async function AdminGeneralItemsPage() {
                     </div>
 
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="description">菜品介绍</label>
+                        <label htmlFor="description">{t("dishDescription")}</label>
                         <textarea
                             id="description"
                             name="description"
@@ -104,7 +116,7 @@ export default async function AdminGeneralItemsPage() {
                     </div>
 
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="priceDollars">基础价格</label>
+                        <label htmlFor="priceDollars">{t("basePrice")}</label>
                         <input
                             id="priceDollars"
                             name="priceDollars"
@@ -123,7 +135,7 @@ export default async function AdminGeneralItemsPage() {
                     </div>
 
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="imageUrl">图片 URL</label>
+                        <label htmlFor="imageUrl">{t("imageUrl")}</label>
                         <input
                             id="imageUrl"
                             name="imageUrl"
@@ -145,21 +157,21 @@ export default async function AdminGeneralItemsPage() {
                                 type="checkbox"
                                 defaultChecked
                             />{" "}
-                            可用
+                            {t("available")}
                         </label>
                     </div>
 
                     <button type="submit">
-                        新增基础菜品
+                        {t("addGeneralItem")}
                     </button>
                 </form>
             </section>
 
             <section>
-                <h2>已有基础菜品</h2>
+                <h2>{t("existingGeneralItems")}</h2>
 
                 {mainItems.length === 0 ? (
-                    <p>目前还没有基础菜品。</p>
+                    <p>{t("noGeneralItems")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {mainItems.map((item) => (
@@ -174,33 +186,41 @@ export default async function AdminGeneralItemsPage() {
                                 <h3>{item.name}</h3>
 
                                 <p>
-                                    {item.description || "无介绍"}
+                                    {item.description || t("noDescription")}
                                 </p>
 
                                 <p>
-                                    <strong>价格：</strong>
+                                    <strong>{t("price")}</strong>
                                     {formatPrice(item.priceCents)}
                                 </p>
 
                                 <p>
-                                    <strong>状态：</strong>
-                                    {item.isAvailable ? "可用" : "不可用"}
+                                    <strong>{t("status")}</strong>
+                                    {item.isAvailable ? t("available") : t("unavailable")}
                                 </p>
 
                                 {item.imageUrl && (
                                     <p>
-                                        <strong>图片：</strong>
+                                        <strong>{t("image")}</strong>
                                         {item.imageUrl}
                                     </p>
                                 )}
-                                <form action={deleteMainItem}>
+                                <div className="admin-item-actions">
+                                    <a
+                                        className="menu-action-button"
+                                        href={`/admin/general-items/${item.id}`}
+                                    >
+                                        {t("edit")}
+                                    </a>
+                                    <form action={deleteMainItem}>
                                     <input
                                         type="hidden"
                                         name="mainItemId"
                                         value={item.id}
                                     />
                                     <ConfirmDeleteButton itemName={item.name} />
-                                </form>
+                                    </form>
+                                </div>
                             </article>
                         ))}
                     </div>

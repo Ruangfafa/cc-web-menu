@@ -1,11 +1,15 @@
 "use client";
 
+import { useLanguage } from "../LanguageProvider";
+
 export function CancelOrderButton() {
+    const { t } = useLanguage();
+
     return (
         <button
             type="submit"
             onClick={(event) => {
-                const confirmed = window.confirm("Cancel this order?");
+                const confirmed = window.confirm(t("cancelOrderConfirm"));
 
                 if (!confirmed) {
                     event.preventDefault();
@@ -16,7 +20,7 @@ export function CancelOrderButton() {
                 color: "#b00020",
             }}
         >
-            Cancel Order
+            {t("cancelOrder")}
         </button>
     );
 }

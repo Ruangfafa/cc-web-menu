@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "@/lib/i18n-server";
 import Providers from "./providers";
 import "./globals.css";
 
@@ -20,15 +21,17 @@ export const metadata: Metadata = {
  *
  * Providers 放在 body 里面，让所有页面都能读取 session。
  */
-export default function RootLayout({
+export default async function RootLayout({
                                        children,
                                    }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const locale = await getLocale();
+
     return (
-        <html lang="en">
+        <html lang={locale === "zh" ? "zh-CN" : "en"}>
         <body>
-        <Providers>
+        <Providers locale={locale}>
             {children}
         </Providers>
         </body>

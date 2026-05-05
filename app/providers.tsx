@@ -1,6 +1,8 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
+import { LanguageProvider } from "./LanguageProvider";
+import type { Locale } from "@/lib/i18n";
 
 /**
  * 全局 Provider
@@ -11,9 +13,15 @@ import { SessionProvider } from "next-auth/react";
  * 3. 后面购物车、账号页面、订单页面都会用到登录状态
  */
 export default function Providers({
+                                      locale,
                                       children,
                                   }: {
+    locale: Locale;
     children: React.ReactNode;
 }) {
-    return <SessionProvider>{children}</SessionProvider>;
+    return (
+        <SessionProvider>
+            <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
+        </SessionProvider>
+    );
 }

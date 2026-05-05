@@ -1,8 +1,10 @@
 import { auth } from "@/auth";
 import { DeliveryAddressMode } from "@prisma/client";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
 import {
     createSiteAddress,
     deleteSiteAddress,
@@ -24,6 +26,7 @@ import { DeleteSiteAddressButton } from "./DeleteSiteAddressButton";
  * 3. 让 checkout 根据后台配置切换地址选择逻辑
  */
 export default async function AdminDeliveryPage() {
+    const t = createTranslator(await getLocale());
     const session = await auth();
 
     if (!session?.user) {
@@ -48,17 +51,24 @@ export default async function AdminDeliveryPage() {
     const requirePickupTime = deliverySetting?.requirePickupTime || false;
 
     return (
-        <main style={{ maxWidth: 1100, margin: "60px auto", padding: 24 }}>
-            <header style={{ marginBottom: 24 }}>
-                <p style={{ margin: "0 0 12px" }}>
-                    <Link href="/admin">Back to admin</Link>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>{session.user.name || t("adminUserFallback")}</strong>
                 </p>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <a className="menu-action-button" href="/admin">
+                        {t("backToAdmin")}
+                    </a>
+                </div>
+            </section>
 
-                <h1 style={{ margin: "0 0 8px" }}>Settings</h1>
+            <header style={{ marginBottom: 24 }}>
+                <h1 style={{ margin: "0 0 8px" }}>{t("settings")}</h1>
 
                 <p style={{ color: "#666", margin: 0 }}>
-                    Switch between customer-owned addresses and site address
-                    selection, and control checkout requirements.
+                    {t("settingsAdminDesc")}
                 </p>
             </header>
 
@@ -71,7 +81,7 @@ export default async function AdminDeliveryPage() {
                     marginBottom: 24,
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Delivery Mode</h2>
+                <h2 style={{ marginTop: 0 }}>{t("deliveryMode")}</h2>
 
                 <form action={updateDeliveryMode}>
                     <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
@@ -84,12 +94,11 @@ export default async function AdminDeliveryPage() {
                                     currentMode === DeliveryAddressMode.SELF_ADDRESS
                                 }
                             />{" "}
-                            Self Address
+                            {t("useCustomerAddress")}
                         </label>
 
                         <p style={{ margin: 0, color: "#666" }}>
-                            Customer uses their own saved address, or guest fills
-                            address manually.
+                            {t("selfAddressModeDesc")}
                         </p>
 
                         <label>
@@ -101,16 +110,15 @@ export default async function AdminDeliveryPage() {
                                     currentMode === DeliveryAddressMode.SITE_ADDRESS
                                 }
                             />{" "}
-                            Site Address
+                            {t("useSiteAddress")}
                         </label>
 
                         <p style={{ margin: 0, color: "#666" }}>
-                            Customer can only choose from admin-managed site
-                            addresses.
+                            {t("siteAddressModeDesc")}
                         </p>
                     </div>
 
-                    <button type="submit">Save Delivery Mode</button>
+                    <button type="submit">{t("saveSettings")}</button>
                 </form>
             </section>
 
@@ -123,7 +131,7 @@ export default async function AdminDeliveryPage() {
                     marginBottom: 24,
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Pickup Time</h2>
+                <h2 style={{ marginTop: 0 }}>{t("pickupTimeRequirement")}</h2>
 
                 <form action={updatePickupTimeRequirement}>
                     <label>
@@ -132,16 +140,14 @@ export default async function AdminDeliveryPage() {
                             name="requirePickupTime"
                             defaultChecked={requirePickupTime}
                         />{" "}
-                        Require pickup time at checkout
+                        {t("requirePickupTime")}
                     </label>
 
                     <p style={{ color: "#666" }}>
-                        When enabled, customers must select a pickup hour and
-                        minute before placing an order. The date comes from the
-                        selected menu day.
+                        {t("pickupRequirementDesc")}
                     </p>
 
-                    <button type="submit">Save Pickup Time Setting</button>
+                    <button type="submit">{t("saveSettings")}</button>
                 </form>
             </section>
 
@@ -154,11 +160,11 @@ export default async function AdminDeliveryPage() {
                     marginBottom: 24,
                 }}
             >
-                <h2 style={{ marginTop: 0 }}>Add Site Address</h2>
+                <h2 style={{ marginTop: 0 }}>{t("createSiteAddress")}</h2>
 
                 <form action={createSiteAddress}>
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="name">Name</label>
+                        <label htmlFor="name">{t("siteAddressName")}</label>
                         <input
                             id="name"
                             name="name"
@@ -173,7 +179,7 @@ export default async function AdminDeliveryPage() {
                     </div>
 
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="fullAddress">Full Address</label>
+                        <label htmlFor="fullAddress">{t("fullAddress")}</label>
                         <textarea
                             id="fullAddress"
                             name="fullAddress"
@@ -190,7 +196,7 @@ export default async function AdminDeliveryPage() {
                     </div>
 
                     <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="sortOrder">Sort Order</label>
+                        <label htmlFor="sortOrder">{t("sortOrder")}</label>
                         <input
                             id="sortOrder"
                             name="sortOrder"
@@ -207,20 +213,21 @@ export default async function AdminDeliveryPage() {
                     </div>
 
                     <label>
-                        <input type="checkbox" name="isActive" defaultChecked /> Active
+                        <input type="checkbox" name="isActive" defaultChecked />{" "}
+                        {t("active")}
                     </label>
 
                     <div style={{ marginTop: 16 }}>
-                        <button type="submit">Create Site Address</button>
+                        <button type="submit">{t("createSiteAddress")}</button>
                     </div>
                 </form>
             </section>
 
             <section>
-                <h2>Current Site Addresses</h2>
+                <h2>{t("currentSiteAddresses")}</h2>
 
                 {siteAddresses.length === 0 ? (
-                    <p style={{ color: "#666" }}>No site addresses found.</p>
+                    <p style={{ color: "#666" }}>{t("noSiteAddressesYet")}</p>
                 ) : (
                     <div style={{ display: "grid", gap: 16 }}>
                         {siteAddresses.map((siteAddress) => (
@@ -242,7 +249,7 @@ export default async function AdminDeliveryPage() {
 
                                     <div style={{ marginBottom: 16 }}>
                                         <label htmlFor={`name-${siteAddress.id}`}>
-                                            Name
+                                            {t("siteAddressName")}
                                         </label>
                                         <input
                                             id={`name-${siteAddress.id}`}
@@ -262,7 +269,7 @@ export default async function AdminDeliveryPage() {
                                         <label
                                             htmlFor={`address-${siteAddress.id}`}
                                         >
-                                            Full Address
+                                            {t("fullAddress")}
                                         </label>
                                         <textarea
                                             id={`address-${siteAddress.id}`}
@@ -284,7 +291,7 @@ export default async function AdminDeliveryPage() {
                                         <label
                                             htmlFor={`sortOrder-${siteAddress.id}`}
                                         >
-                                            Sort Order
+                                            {t("sortOrder")}
                                         </label>
                                         <input
                                             id={`sortOrder-${siteAddress.id}`}
@@ -307,11 +314,11 @@ export default async function AdminDeliveryPage() {
                                             name="isActive"
                                             defaultChecked={siteAddress.isActive}
                                         />{" "}
-                                        Active
+                                        {t("active")}
                                     </label>
 
                                     <div style={{ marginTop: 16 }}>
-                                        <button type="submit">Update Site Address</button>
+                                        <button type="submit">{t("save")}</button>
                                     </div>
                                 </form>
 

@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import {
     formatMenuDate,
@@ -7,6 +10,7 @@ import {
     toDateKey,
 } from "@/lib/menu-date";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../../LanguageSwitcher";
 import MenuItemSelectionClient from "./MenuItemSelectionClient";
 
 /**
@@ -38,6 +42,8 @@ export default async function MenuItemPage({
     params: Promise<{ id: string }>;
 }) {
     const { id } = await params;
+    const t = createTranslator(await getLocale());
+    const session = await auth();
     const menuItemId = Number(id);
     const todayDate = parseDateKey(todayDateKey()) || new Date();
 
@@ -101,22 +107,76 @@ export default async function MenuItemPage({
     const displayDescription =
         menuItem.displayDescription ||
         menuItem.mainItem.description ||
-        "No description.";
+        t("noDescription");
     const serviceDate = toDateKey(menuItem.availableDate);
 
     return (
-        <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-            <header style={{ marginBottom: 24 }}>
-                <p style={{ margin: "0 0 12px" }}>
-                    <Link href={`/menu?date=${serviceDate}`}>Back to menu</Link>
-                    {" | "}
-                    <Link href="/cart">View cart</Link>
-                </p>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                {session?.user ? (
+                    <>
+                        <p style={{ margin: 0 }}>
+                            <strong>
+                                {t("helloUser", {
+                                    name: session.user.name || t("user"),
+                                })}
+                            </strong>
+                        </p>
 
+                        <div className="menu-user-actions">
+                            {(session.user as { role?: string }).role === "ADMIN" && (
+                                <Link className="menu-action-button" href="/admin">
+                                    {t("adminDashboard")}
+                                </Link>
+                            )}
+                            <LanguageSwitcher />
+                            <Link
+                                className="menu-action-button"
+                                href={`/menu?date=${serviceDate}`}
+                            >
+                                {t("backToMenu")}
+                            </Link>
+                            <Link className="menu-action-button" href="/cart">
+                                {t("cart")}
+                            </Link>
+                            <Link className="menu-action-button" href="/account">
+                                {t("account")}
+                            </Link>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p style={{ margin: 0 }}>
+                            <strong>{t("notLoggedIn")}</strong>
+                        </p>
+
+                        <div className="menu-user-actions">
+                            <LanguageSwitcher />
+                            <Link
+                                className="menu-action-button"
+                                href={`/menu?date=${serviceDate}`}
+                            >
+                                {t("backToMenu")}
+                            </Link>
+                            <Link className="menu-action-button" href="/cart">
+                                {t("cart")}
+                            </Link>
+                            <Link className="menu-action-button" href="/login">
+                                {t("login")}
+                            </Link>
+                            <Link className="menu-action-button" href="/register">
+                                {t("register")}
+                            </Link>
+                        </div>
+                    </>
+                )}
+            </section>
+
+            <header style={{ marginBottom: 24 }}>
                 <h1 style={{ margin: "0 0 12px" }}>{displayName}</h1>
 
                 <p style={{ color: "#444", margin: "0 0 12px" }}>
-                    Menu date: {formatMenuDate(serviceDate)}
+                    {t("menuDate")}: {formatMenuDate(serviceDate)}
                 </p>
 
                 <p style={{ color: "#666", margin: "0 0 16px" }}>
@@ -130,7 +190,7 @@ export default async function MenuItemPage({
                         margin: 0,
                     }}
                 >
-                    Base price: {formatPrice(menuItem.mainItem.priceCents)}
+                    {t("basePrice")}: {formatPrice(menuItem.mainItem.priceCents)}
                 </p>
             </header>
 
@@ -163,13 +223,13 @@ export default async function MenuItemPage({
                             justifyContent: "center",
                         }}
                     >
-                        No image
+                        {t("noImageLower")}
                     </div>
                 )}
             </section>
 
             <section>
-                <h2 style={{ marginBottom: 16 }}>Options</h2>
+                <h2 style={{ marginBottom: 16 }}>{t("options")}</h2>
 
                 <MenuItemSelectionClient
                     menuItem={menuItem}

@@ -1,5 +1,9 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LanguageSwitcher } from "../LanguageSwitcher";
 
 /**
  * 管理员后台首页
@@ -15,6 +19,7 @@ import { redirect } from "next/navigation";
  * 5. 是 ADMIN → 显示后台入口
  */
 export default async function AdminPage() {
+    const t = createTranslator(await getLocale());
     /**
      * auth() 可以在 Server Component 中读取当前登录 session。
      */
@@ -45,11 +50,28 @@ export default async function AdminPage() {
      * - role 是 ADMIN
      */
     return (
-        <main style={{ maxWidth: 900, margin: "80px auto", padding: 24 }}>
-            <h1>Admin Dashboard</h1>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>
+                        {t("helloUser", {
+                            name: session.user.name || t("user"),
+                        })}
+                    </strong>
+                </p>
+
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <Link className="menu-action-button" href="/menu">
+                        {t("backToMenu")}
+                    </Link>
+                </div>
+            </section>
+
+            <h1>{t("adminDashboard")}</h1>
 
             <p>
-                Welcome, <strong>{session.user.name}</strong>
+                {t("welcomeName", { name: session.user.name || t("user") })}
             </p>
 
             <section
@@ -71,8 +93,8 @@ export default async function AdminPage() {
                         color: "inherit",
                     }}
                 >
-                    <h2>General Item Management</h2>
-                    <p>Upload and manage base dishes in general_items.</p>
+                    <h2>{t("generalItemManagement")}</h2>
+                    <p>{t("generalItemManagementDesc")}</p>
                 </a>
 
                 <a
@@ -86,23 +108,8 @@ export default async function AdminPage() {
                         color: "inherit",
                     }}
                 >
-                    <h2>Sub Item Management</h2>
-                    <p>Upload and manage add-ons such as rice, egg, spicy level, and drinks.</p>
-                </a>
-
-                <a
-                    href="/admin/menu"
-                    style={{
-                        display: "block",
-                        padding: 20,
-                        border: "1px solid #ddd",
-                        borderRadius: 8,
-                        textDecoration: "none",
-                        color: "inherit",
-                    }}
-                >
-                    <h2>Menu Configuration</h2>
-                    <p>Build the customer-facing menu from general items and option groups.</p>
+                    <h2>{t("subItemManagement")}</h2>
+                    <p>{t("subItemManagementDesc")}</p>
                 </a>
 
                 <a
@@ -116,8 +123,23 @@ export default async function AdminPage() {
                         color: "inherit",
                     }}
                 >
-                    <h2>Option Group Management</h2>
-                    <p>Create option groups such as spicy level, add-ons, and drinks.</p>
+                    <h2>{t("optionGroupManagement")}</h2>
+                    <p>{t("optionGroupManagementDesc")}</p>
+                </a>
+
+                <a
+                    href="/admin/menu"
+                    style={{
+                        display: "block",
+                        padding: 20,
+                        border: "1px solid #ddd",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                        color: "inherit",
+                    }}
+                >
+                    <h2>{t("menuConfiguration")}</h2>
+                    <p>{t("menuConfigurationDesc")}</p>
                 </a>
 
                 <a
@@ -131,8 +153,8 @@ export default async function AdminPage() {
                         color: "inherit",
                     }}
                 >
-                    <h2>Order Management</h2>
-                    <p>View and update customer orders.</p>
+                    <h2>{t("orderManagement")}</h2>
+                    <p>{t("orderManagementDesc")}</p>
                 </a>
 
                 <a
@@ -146,8 +168,8 @@ export default async function AdminPage() {
                         color: "inherit",
                     }}
                 >
-                    <h2>User Management</h2>
-                    <p>View customer accounts.</p>
+                    <h2>{t("userManagement")}</h2>
+                    <p>{t("userManagementDesc")}</p>
                 </a>
 
                 <a
@@ -161,8 +183,8 @@ export default async function AdminPage() {
                         color: "inherit",
                     }}
                 >
-                    <h2>Settings</h2>
-                    <p>Manage delivery mode, site addresses, and checkout requirements.</p>
+                    <h2>{t("settings")}</h2>
+                    <p>{t("settingsDesc")}</p>
                 </a>
             </section>
         </main>

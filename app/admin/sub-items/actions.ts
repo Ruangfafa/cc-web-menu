@@ -74,3 +74,28 @@ export async function deleteSubItem(formData: FormData) {
 
     redirect("/admin/sub-items");
 }
+
+export async function updateSubItem(subItemId: number, formData: FormData) {
+    await requireAdmin();
+
+    const name = String(formData.get("name") || "").trim();
+
+    if (!Number.isInteger(subItemId) || subItemId <= 0) {
+        throw new Error("Invalid sub item id.");
+    }
+
+    if (!name) {
+        throw new Error("Name is required.");
+    }
+
+    await prisma.subItem.update({
+        where: {
+            id: subItemId,
+        },
+        data: {
+            name,
+        },
+    });
+
+    redirect("/admin/sub-items");
+}

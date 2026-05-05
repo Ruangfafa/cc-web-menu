@@ -1,7 +1,10 @@
 import { auth } from "@/auth";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
+import { LanguageSwitcher } from "../LanguageSwitcher";
 import CheckoutClient from "./CheckoutClient";
 
 /**
@@ -21,6 +24,7 @@ import CheckoutClient from "./CheckoutClient";
  * - 购物车还在 localStorage，适合客户端读取
  */
 export default async function CheckoutPage() {
+    const t = createTranslator(await getLocale());
     const session = await auth();
     const deliverySetting = await prisma.deliverySetting.findUnique({
         where: {
@@ -82,18 +86,34 @@ export default async function CheckoutPage() {
     }
 
     return (
-        <main style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-            <header style={{ marginBottom: 24 }}>
-                <p style={{ margin: "0 0 12px" }}>
-                    <Link href="/cart">Back to cart</Link>
-                    {" | "}
-                    <Link href="/menu">Back to menu</Link>
+        <main className="page-shell">
+            <section className="menu-user-bar">
+                <p style={{ margin: 0 }}>
+                    <strong>
+                        {session?.user
+                            ? t("helloUser", {
+                                  name: session.user.name || t("user"),
+                              })
+                            : t("notLoggedIn")}
+                    </strong>
                 </p>
 
-                <h1 style={{ margin: "0 0 8px" }}>Checkout</h1>
+                <div className="menu-user-actions">
+                    <LanguageSwitcher />
+                    <Link className="menu-action-button" href="/cart">
+                        {t("backToCart")}
+                    </Link>
+                    <Link className="menu-action-button" href="/menu">
+                        {t("backToMenu")}
+                    </Link>
+                </div>
+            </section>
+
+            <header style={{ marginBottom: 24 }}>
+                <h1 style={{ margin: "0 0 8px" }}>{t("checkout")}</h1>
 
                 <p style={{ color: "#666", margin: 0 }}>
-                    Review your cart and prepare delivery information.
+                    {t("checkoutIntro")}
                 </p>
             </header>
 

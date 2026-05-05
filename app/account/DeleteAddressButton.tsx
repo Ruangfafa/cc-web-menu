@@ -1,11 +1,15 @@
 "use client";
 
+import { useLanguage } from "../LanguageProvider";
+
 export function DeleteAddressButton() {
+    const { t } = useLanguage();
+
     return (
         <button
             type="submit"
             onClick={(event) => {
-                const confirmed = window.confirm("Delete this address?");
+                const confirmed = window.confirm(t("deleteAddressConfirm"));
 
                 if (!confirmed) {
                     event.preventDefault();
@@ -16,7 +20,7 @@ export function DeleteAddressButton() {
                 color: "#b00020",
             }}
         >
-            Delete
+            {t("delete")}
         </button>
     );
 }

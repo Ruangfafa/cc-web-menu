@@ -128,3 +128,42 @@ export async function deleteMainItem(formData: FormData) {
 
     redirect("/admin/general-items");
 }
+
+export async function updateMainItem(mainItemId: number, formData: FormData) {
+    await requireAdmin();
+
+    const name = String(formData.get("name") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const priceDollars = String(formData.get("priceDollars") || "").trim();
+    const imageUrl = String(formData.get("imageUrl") || "").trim();
+    const isAvailable = formData.get("isAvailable") === "on";
+
+    if (!Number.isInteger(mainItemId) || mainItemId <= 0) {
+        throw new Error("Invalid main item id.");
+    }
+
+    if (!name) {
+        throw new Error("Name is required.");
+    }
+
+    const priceCents = Math.round(Number(priceDollars) * 100);
+
+    if (!Number.isInteger(priceCents) || priceCents < 0) {
+        throw new Error("Invalid price.");
+    }
+
+    await prisma.mainItem.update({
+        where: {
+            id: mainItemId,
+        },
+        data: {
+            name,
+            description: description || null,
+            priceCents,
+            imageUrl: imageUrl || null,
+            isAvailable,
+        },
+    });
+
+    redirect("/admin/general-items");
+}

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "../LanguageProvider";
 
 export default function RegisterPage() {
+    const { t } = useLanguage();
     const router = useRouter();
 
     const [name, setName] = useState("");
@@ -36,13 +38,13 @@ export default function RegisterPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || "Register failed");
+                setError(data.error || t("registerFailed"));
                 return;
             }
 
             router.push("/login");
         } catch (err) {
-            setError("Something went wrong");
+            setError(t("somethingWentWrong"));
         } finally {
             setLoading(false);
         }
@@ -50,11 +52,11 @@ export default function RegisterPage() {
 
     return (
         <main style={{ maxWidth: 400, margin: "80px auto" }}>
-            <h1>Register</h1>
+            <h1>{t("register")}</h1>
 
             <form onSubmit={handleSubmit}>
                 <div>
-                    <label>Name</label>
+                    <label>{t("name")}</label>
                     <input
                         type="text"
                         value={name}
@@ -64,7 +66,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                    <label>Phone</label>
+                    <label>{t("phone")}</label>
                     <input
                         type="tel"
                         value={phone}
@@ -74,7 +76,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                    <label>Email</label>
+                    <label>{t("email")}</label>
                     <input
                         type="email"
                         value={email}
@@ -84,7 +86,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                    <label>Password</label>
+                    <label>{t("password")}</label>
                     <input
                         type="password"
                         value={password}
@@ -101,7 +103,7 @@ export default function RegisterPage() {
                 )}
 
                 <button type="submit" disabled={loading}>
-                    {loading ? "Registering..." : "Register"}
+                    {loading ? t("registering") : t("register")}
                 </button>
             </form>
         </main>
