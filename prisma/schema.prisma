@@ -1,0 +1,436 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+}
+
+enum UserRole {
+    CUSTOMER
+    ADMIN
+}
+
+enum OrderPaymentStatus {
+    PENDING_PAYMENT
+    PAID
+}
+
+enum OrderFulfillmentStatus {
+    PREPARING
+    COMPLETED
+    CANCELLED
+    REFUNDED
+}
+
+enum OrderStatus {
+    PENDING_PAYMENT
+    PAID
+    PREPARING
+    READY
+    COMPLETED
+    CANCELLED
+    REFUNDED
+}
+
+enum DeliveryAddressMode {
+    SELF_ADDRESS
+    SITE_ADDRESS
+    BOTH
+}
+
+enum DeliveryPricingMode {
+    BASE_PLUS_DISTANCE
+    DISTANCE_TIERS
+}
+
+model MainItem {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 菜品名称
+    name String @db.VarChar(63)
+
+    /// 菜品介绍
+    description String? @db.Text
+
+    /// 菜品单价
+    priceCents Int
+
+    /// 图片源
+    imageUrl String? @db.VarChar(255)
+
+    /// 是否可用
+    isAvailable Boolean @default(true)
+
+    /// 创建时间
+    createdAt DateTime @default(now())
+
+    menuItems MenuItem[]
+
+    @@map("general_items")
+}
+
+model SubItem {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 子项名称
+    ///
+    /// 这里只记录附属项本身是什么，不记录价格。
+    /// 例如：
+    /// - 加饭
+    /// - 加蛋
+    /// - 微辣
+    /// - 中辣
+    /// - 可乐
+    name String @db.VarChar(63)
+
+    /// 这个子项被哪些选项组使用
+    ///
+    /// 具体价格由 OptionGroupItem.priceCents 决定。
+    /// 因为同一个 SubItem 在不同菜单/选项组里可能有不同价格。
+    optionGroupItems OptionGroupItem[]
+
+    /// 创建时间
+    createdAt DateTime @default(now())
+
+    @@map("sub_items")
+}
+
+model MenuItem {
+    id Int @id @default(autoincrement())
+
+    /// 关联商品库里的主商品
+    mainItemId Int
+    mainItem MainItem @relation(fields: [mainItemId], references: [id])
+
+    /// 菜单上是否显示
+    isActive Boolean @default(true)
+
+    availableDate DateTime @map("available_date") @db.Date
+
+    /// 菜单显示顺序
+    sortOrder Int @default(0)
+
+    /// 菜单上的自定义显示名，可选
+    displayName String? @db.VarChar(100)
+
+    /// 菜单上的自定义描述，可选
+    displayDescription String? @db.Text
+
+    /// 这个菜单商品下面有哪些选项组
+    optionGroups MenuItemOptionGroup[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([availableDate])
+    @@map("menu_items")
+}
+
+model OptionGroup {
+    id Int @id @default(autoincrement())
+
+    /// 选项组名称
+    name String @db.VarChar(100)
+
+    /// 说明文字
+    description String? @db.Text
+
+    /// 是否必选
+    isRequired Boolean @default(false)
+
+    /// 最少选择几个
+    minSelect Int @default(0)
+
+    /// 最多选择几个
+    maxSelect Int @default(1)
+
+    /// 显示顺序
+    sortOrder Int @default(0)
+
+    /// 这个组选项有哪些 sub item
+    options OptionGroupItem[]
+
+    /// 哪些菜单商品使用这个选项组
+    menuItems MenuItemOptionGroup[]
+
+    createdAt DateTime @default(now())
+
+    @@map("option_groups")
+}
+
+model OptionGroupItem {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 所属选项组ID
+    optionGroupId Int
+
+    /// 所属选项组
+    optionGroup OptionGroup @relation(fields: [optionGroupId], references: [id])
+
+    /// 关联的子项ID
+    subItemId Int
+
+    /// 关联的子项
+    subItem SubItem @relation(fields: [subItemId], references: [id])
+
+    /// 当前子项在这个选项组里的价格，单位是 cents
+    ///
+    /// 例如：
+    /// 0 = 免费
+    /// 150 = +$1.50
+    /// 300 = +$3.00
+    ///
+    /// 注意：
+    /// SubItem 本身不再存价格。
+    /// 同一个 SubItem 在不同 OptionGroup 中可以有不同价格。
+    priceCents Int @default(0)
+
+    /// 是否默认选中
+    ///
+    /// 例如：
+    /// 辣度组里可以默认选中“不辣”。
+    isDefault Boolean @default(false)
+
+    /// 是否可用
+    ///
+    /// false 表示这个选项暂时不可选。
+    isAvailable Boolean @default(true)
+
+    /// 显示顺序
+    sortOrder Int @default(0)
+
+    /// 防止同一个选项组里重复添加同一个子项
+    @@unique([optionGroupId, subItemId])
+
+    @@map("option_group_items")
+}
+
+model MenuItemOptionGroup {
+    id Int @id @default(autoincrement())
+
+    menuItemId Int
+    menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+    optionGroupId Int
+    optionGroup OptionGroup @relation(fields: [optionGroupId], references: [id])
+
+    /// 在这个菜单商品中的显示顺序
+    sortOrder Int @default(0)
+
+    @@unique([menuItemId, optionGroupId])
+    @@map("menu_item_option_groups")
+}
+
+model User {
+    /// 主键ID
+    id Int @id @default(autoincrement())
+
+    /// 邮箱（登录用）
+    email String @unique @db.VarChar(255)
+
+    /// 身份
+    role UserRole @default(CUSTOMER)
+
+    /// 密码（加密后）
+    passwordHash String @db.VarChar(255)
+
+    /// 昵称
+    name String @db.VarChar(100)
+
+    /// 手机号
+    phone String @db.VarChar(20)
+
+    /// 备用手机号
+    phone2 String? @db.VarChar(20)
+
+    /// 地址
+    addresses Address[]
+    orders Order[]
+
+    /// 是否激活
+    isActive Boolean @default(true)
+
+    /// 创建时间
+    createdAt DateTime @default(now())
+
+    /// 更新时间
+    updatedAt DateTime @updatedAt
+
+    @@map("users")
+}
+
+model EmailVerificationCode {
+    id Int @id @default(autoincrement())
+
+    email String @db.VarChar(255)
+    codeHash String @map("code_hash") @db.VarChar(64)
+    purpose String @db.VarChar(32)
+    expiresAt DateTime @map("expires_at")
+    usedAt DateTime? @map("used_at")
+
+    createdAt DateTime @default(now()) @map("created_at")
+
+    @@index([email, purpose, createdAt])
+    @@map("email_verification_codes")
+}
+
+model Address {
+    id Int @id @default(autoincrement())
+
+    userId Int
+    user User @relation(fields: [userId], references: [id])
+
+    /// 用户看到的地址
+    fullAddress String @db.VarChar(255)
+
+    /// Google 唯一ID
+    googlePlaceId String @db.VarChar(255)
+
+    /// 经纬度
+    latitude Float
+    longitude Float
+
+    /// 是否默认
+    isDefault Boolean @default(false)
+
+    createdAt DateTime @default(now())
+
+    @@map("addresses")
+}
+
+model Order {
+    id Int @id @default(autoincrement())
+
+    userId Int?
+    user User? @relation(fields: [userId], references: [id])
+
+    guestName String? @db.VarChar(100)
+    guestPhone String? @db.VarChar(20)
+    guestAddress String? @db.VarChar(255)
+
+    status OrderStatus @default(PENDING_PAYMENT)
+    paymentStatus OrderPaymentStatus @default(PENDING_PAYMENT) @map("payment_status")
+    fulfillmentStatus OrderFulfillmentStatus @default(PREPARING) @map("fulfillment_status")
+    comment String? @db.Text
+    serviceDate DateTime? @map("service_date") @db.Date
+    pickupTime DateTime? @map("pickup_time")
+
+    subtotalCents Int
+    taxCents Int @default(0)
+    deliveryFeeCents Int @default(0)
+    totalCents Int
+
+    stripeSessionId String? @db.VarChar(255)
+    stripePaymentIntentId String? @db.VarChar(255)
+
+    items OrderItem[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([serviceDate])
+    @@map("orders")
+}
+
+model OrderItem {
+    id Int @id @default(autoincrement())
+
+    orderId Int
+    order Order @relation(fields: [orderId], references: [id])
+
+    menuItemId Int?
+    mainItemId Int?
+
+    nameSnapshot String @db.VarChar(100)
+    basePriceCentsSnapshot Int
+    quantity Int
+    totalCentsSnapshot Int
+
+    options OrderItemOption[]
+
+    createdAt DateTime @default(now())
+
+    @@map("order_items")
+}
+
+model OrderItemOption {
+    id Int @id @default(autoincrement())
+
+    orderItemId Int
+    orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+    optionGroupNameSnapshot String @db.VarChar(100)
+    subItemNameSnapshot String @db.VarChar(100)
+    priceCentsSnapshot Int
+
+    @@map("order_item_options")
+}
+
+model DeliverySetting {
+    /// 鍗曚緥閰嶇疆琛?
+    id Int @id
+
+    /// 閰嶉€佸湴鍧€妯″紡
+    mode DeliveryAddressMode @default(SELF_ADDRESS)
+    requirePickupTime Boolean @default(false) @map("require_pickup_time")
+    originAddress String? @map("origin_address") @db.VarChar(255)
+    originGooglePlaceId String? @map("origin_google_place_id") @db.VarChar(255)
+    originLatitude Float? @map("origin_latitude")
+    originLongitude Float? @map("origin_longitude")
+    pricingMode DeliveryPricingMode @default(BASE_PLUS_DISTANCE) @map("pricing_mode")
+    baseDeliveryFeeCents Int @default(0) @map("base_delivery_fee_cents")
+    perKmDeliveryFeeCents Int @default(0) @map("per_km_delivery_fee_cents")
+
+    updatedAt DateTime @updatedAt
+    distanceTiers DeliveryDistanceTier[]
+
+    @@map("delivery_settings")
+}
+
+model DeliveryDistanceTier {
+    id Int @id @default(autoincrement())
+
+    deliverySettingId Int @map("delivery_setting_id")
+    deliverySetting DeliverySetting @relation(fields: [deliverySettingId], references: [id], onDelete: Cascade)
+
+    minKm Float @map("min_km")
+    maxKm Float? @map("max_km")
+    feeCents Int @map("fee_cents")
+    sortOrder Int @default(0) @map("sort_order")
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    @@index([deliverySettingId])
+    @@map("delivery_distance_tiers")
+}
+
+model SiteAddress {
+    id Int @id @default(autoincrement())
+
+    /// 绔欑偣鍦板潃鍚嶇О锛屼究浜庡悗鍙扮鐞?
+    name String @db.VarChar(100)
+
+    /// 顾客可选的地址文本
+    fullAddress String @db.VarChar(255)
+
+    /// 是否启用
+    isActive Boolean @default(true)
+
+    /// 显示顺序
+    sortOrder Int @default(0)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("site_addresses")
+}
