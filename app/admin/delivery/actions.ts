@@ -1,9 +1,27 @@
 "use server";
 
 import { auth } from "@/auth";
+import {
+    getAddressByPlaceId,
+    normalizeAddress,
+} from "@/lib/address-normalization";
+import {
+    DELIVERY_PRICING_BASE_PLUS_DISTANCE,
+    DELIVERY_PRICING_DISTANCE_TIERS,
+} from "@/lib/delivery-pricing";
 import { DeliveryAddressMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+
+const deliveryAddressModes = [
+    DeliveryAddressMode.SELF_ADDRESS,
+    DeliveryAddressMode.SITE_ADDRESS,
+    "BOTH" as DeliveryAddressMode,
+] as const;
+const deliveryPricingModes = [
+    DELIVERY_PRICING_BASE_PLUS_DISTANCE,
+    DELIVERY_PRICING_DISTANCE_TIERS,
+] as const;
 
 async function requireAdmin() {
     const session = await auth();
@@ -17,6 +35,39 @@ async function requireAdmin() {
     }
 }
 
+async function ensureDeliverySetting() {
+    const prismaAny = prisma as any;
+
+    return prismaAny.deliverySetting.upsert({
+        where: {
+            id: 1,
+        },
+        update: {},
+        create: {
+            id: 1,
+            mode: DeliveryAddressMode.SELF_ADDRESS,
+        },
+    });
+}
+
+async function resolveAddressFromForm(formData: FormData) {
+    const fullAddress = String(formData.get("fullAddress") || "").trim();
+    const googlePlaceId = String(formData.get("googlePlaceId") || "").trim();
+    const googlePlacesSessionToken = String(
+        formData.get("googlePlacesSessionToken") || ""
+    ).trim();
+
+    if (!fullAddress) {
+        throw new Error("Address is required.");
+    }
+
+    if (googlePlaceId && googlePlacesSessionToken) {
+        return getAddressByPlaceId(googlePlaceId, googlePlacesSessionToken);
+    }
+
+    return normalizeAddress(fullAddress);
+}
+
 /**
  * 更新全站配送地址模式
  */
@@ -25,7 +76,7 @@ export async function updateDeliveryMode(formData: FormData) {
 
     const mode = String(formData.get("mode") || "");
 
-    if (!Object.values(DeliveryAddressMode).includes(mode as DeliveryAddressMode)) {
+    if (!deliveryAddressModes.includes(mode as DeliveryAddressMode)) {
         throw new Error("Invalid delivery mode.");
     }
 
@@ -61,6 +112,167 @@ export async function updatePickupTimeRequirement(formData: FormData) {
             id: 1,
             mode: DeliveryAddressMode.SELF_ADDRESS,
             requirePickupTime,
+        },
+    });
+
+    redirect("/admin/delivery");
+}
+
+export async function updateDeliveryOrigin(formData: FormData) {
+    await requireAdmin();
+
+    const normalizedAddress = await resolveAddressFromForm(formData);
+    const prismaAny = prisma as any;
+
+    await prismaAny.deliverySetting.upsert({
+        where: {
+            id: 1,
+        },
+        update: {
+            originAddress: normalizedAddress.fullAddress,
+            originGooglePlaceId: normalizedAddress.googlePlaceId,
+            originLatitude: normalizedAddress.latitude,
+            originLongitude: normalizedAddress.longitude,
+        },
+        create: {
+            id: 1,
+            mode: DeliveryAddressMode.SELF_ADDRESS,
+            originAddress: normalizedAddress.fullAddress,
+            originGooglePlaceId: normalizedAddress.googlePlaceId,
+            originLatitude: normalizedAddress.latitude,
+            originLongitude: normalizedAddress.longitude,
+        },
+    });
+
+    redirect("/admin/delivery");
+}
+
+export async function updateDeliveryPricing(formData: FormData) {
+    await requireAdmin();
+
+    const pricingMode = String(formData.get("pricingMode") || "");
+    const baseDeliveryFeeCents = Math.max(
+        0,
+        Math.round(Number(formData.get("baseDeliveryFeeDollars") || 0) * 100)
+    );
+    const perKmDeliveryFeeCents = Math.max(
+        0,
+        Math.round(Number(formData.get("perKmDeliveryFeeDollars") || 0) * 100)
+    );
+
+    if (!deliveryPricingModes.includes(pricingMode as any)) {
+        throw new Error("Invalid delivery pricing mode.");
+    }
+
+    const prismaAny = prisma as any;
+
+    await prismaAny.deliverySetting.upsert({
+        where: {
+            id: 1,
+        },
+        update: {
+            pricingMode,
+            baseDeliveryFeeCents,
+            perKmDeliveryFeeCents,
+        },
+        create: {
+            id: 1,
+            mode: DeliveryAddressMode.SELF_ADDRESS,
+            pricingMode,
+            baseDeliveryFeeCents,
+            perKmDeliveryFeeCents,
+        },
+    });
+
+    redirect("/admin/delivery");
+}
+
+export async function createDeliveryDistanceTier(formData: FormData) {
+    await requireAdmin();
+    await ensureDeliverySetting();
+
+    const minKm = Number(formData.get("minKm"));
+    const maxKmValue = String(formData.get("maxKm") || "").trim();
+    const maxKm = maxKmValue ? Number(maxKmValue) : null;
+    const feeCents = Math.max(
+        0,
+        Math.round(Number(formData.get("feeDollars") || 0) * 100)
+    );
+    const sortOrder = Number(formData.get("sortOrder") || 0);
+
+    if (
+        !Number.isFinite(minKm) ||
+        minKm < 0 ||
+        (maxKm !== null && (!Number.isFinite(maxKm) || maxKm <= minKm)) ||
+        !Number.isInteger(sortOrder)
+    ) {
+        throw new Error("Invalid delivery distance tier.");
+    }
+
+    await (prisma as any).deliveryDistanceTier.create({
+        data: {
+            deliverySettingId: 1,
+            minKm,
+            maxKm,
+            feeCents,
+            sortOrder,
+        },
+    });
+
+    redirect("/admin/delivery");
+}
+
+export async function updateDeliveryDistanceTier(formData: FormData) {
+    await requireAdmin();
+
+    const tierId = Number(formData.get("tierId"));
+    const minKm = Number(formData.get("minKm"));
+    const maxKmValue = String(formData.get("maxKm") || "").trim();
+    const maxKm = maxKmValue ? Number(maxKmValue) : null;
+    const feeCents = Math.max(
+        0,
+        Math.round(Number(formData.get("feeDollars") || 0) * 100)
+    );
+    const sortOrder = Number(formData.get("sortOrder") || 0);
+
+    if (
+        !Number.isInteger(tierId) ||
+        tierId <= 0 ||
+        !Number.isFinite(minKm) ||
+        minKm < 0 ||
+        (maxKm !== null && (!Number.isFinite(maxKm) || maxKm <= minKm)) ||
+        !Number.isInteger(sortOrder)
+    ) {
+        throw new Error("Invalid delivery distance tier.");
+    }
+
+    await (prisma as any).deliveryDistanceTier.update({
+        where: {
+            id: tierId,
+        },
+        data: {
+            minKm,
+            maxKm,
+            feeCents,
+            sortOrder,
+        },
+    });
+
+    redirect("/admin/delivery");
+}
+
+export async function deleteDeliveryDistanceTier(formData: FormData) {
+    await requireAdmin();
+
+    const tierId = Number(formData.get("tierId"));
+
+    if (!Number.isInteger(tierId) || tierId <= 0) {
+        throw new Error("Invalid delivery distance tier id.");
+    }
+
+    await (prisma as any).deliveryDistanceTier.delete({
+        where: {
+            id: tierId,
         },
     });
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { CartIconLink } from "../../CartIconLink";
 
 /**
  * 下单成功页
@@ -17,7 +18,7 @@ export default async function CheckoutSuccessPage({
     const t = createTranslator(await getLocale());
 
     return (
-        <main style={{ maxWidth: 700, margin: "80px auto", padding: 24 }}>
+        <main className="page-shell" style={{ maxWidth: 700 }}>
             <h1>{t("orderCreated")}</h1>
 
             <p style={{ color: "#666" }}>
@@ -30,7 +31,7 @@ export default async function CheckoutSuccessPage({
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <Link href="/menu">{t("backToMenu")}</Link>
-                <Link href="/cart">{t("backToCart")}</Link>
+                <CartIconLink ariaLabel={t("backToCart")} />
             </div>
         </main>
     );

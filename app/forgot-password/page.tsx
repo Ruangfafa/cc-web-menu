@@ -1,22 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useLanguage } from "../LanguageProvider";
 
-export default function RegisterPage() {
+export default function ForgotPasswordPage() {
     const { t } = useLanguage();
     const router = useRouter();
-
-    const [name, setName] = useState("");
-    const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [verificationCode, setVerificationCode] = useState("");
+    const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
-    const [loading, setLoading] = useState(false);
     const [sendingCode, setSendingCode] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [codeSent, setCodeSent] = useState(false);
 
     async function handleSendCode() {
@@ -25,24 +23,22 @@ export default function RegisterPage() {
         setSendingCode(true);
 
         try {
-            const res = await fetch("/api/register/send-code", {
+            const response = await fetch("/api/password-reset/send-code", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    email,
-                }),
+                body: JSON.stringify({ email }),
             });
-            const data = await res.json();
+            const result = await response.json();
 
-            if (!res.ok) {
-                setError(data.error || t("verificationCodeSendFailed"));
+            if (!response.ok) {
+                setError(result.error || t("verificationCodeSendFailed"));
                 return;
             }
 
             setCodeSent(true);
-            setMessage(t("verificationCodeSent"));
+            setMessage(t("passwordResetCodeSent"));
         } catch {
             setError(t("somethingWentWrong"));
         } finally {
@@ -50,74 +46,51 @@ export default function RegisterPage() {
         }
     }
 
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-
+    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
         setError("");
-        setLoading(true);
+        setSubmitting(true);
 
         try {
-            const res = await fetch("/api/register", {
+            const response = await fetch("/api/password-reset", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    name,
-                    phone,
                     email,
-                    password,
                     verificationCode,
+                    password,
                 }),
             });
+            const result = await response.json();
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                setError(data.error || t("registerFailed"));
+            if (!response.ok) {
+                setError(result.error || t("passwordResetFailed"));
                 return;
             }
 
             router.push("/login");
-        } catch (err) {
+        } catch {
             setError(t("somethingWentWrong"));
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     }
 
     return (
         <main className="auth-shell">
-            <h1>{t("register")}</h1>
+            <h1>{t("forgotPassword")}</h1>
 
             <form onSubmit={handleSubmit}>
                 <div>
-                    <label>{t("name")}</label>
+                    <label htmlFor="email">{t("email")}</label>
                     <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                    />
-                </div>
-
-                <div>
-                    <label>{t("phone")}</label>
-                    <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        required
-                    />
-                </div>
-
-                <div>
-                    <label>{t("email")}</label>
-                    <input
+                        id="email"
                         type="email"
                         value={email}
-                        onChange={(e) => {
-                            setEmail(e.target.value);
+                        onChange={(event) => {
+                            setEmail(event.target.value);
                             setCodeSent(false);
                             setVerificationCode("");
                             setMessage("");
@@ -127,7 +100,9 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                    <label>{t("verificationCode")}</label>
+                    <label htmlFor="verificationCode">
+                        {t("verificationCode")}
+                    </label>
                     <div
                         style={{
                             display: "grid",
@@ -137,11 +112,12 @@ export default function RegisterPage() {
                         }}
                     >
                         <input
+                            id="verificationCode"
                             type="text"
                             inputMode="numeric"
                             value={verificationCode}
-                            onChange={(e) =>
-                                setVerificationCode(e.target.value)
+                            onChange={(event) =>
+                                setVerificationCode(event.target.value)
                             }
                             required
                             minLength={6}
@@ -163,32 +139,28 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                    <label>{t("password")}</label>
+                    <label htmlFor="password">{t("newPassword")}</label>
                     <input
+                        id="password"
                         type="password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(event) => setPassword(event.target.value)}
                         required
                         minLength={8}
                     />
                 </div>
 
-                {error && (
-                    <p style={{ color: "red" }}>
-                        {error}
-                    </p>
-                )}
+                {error && <p style={{ color: "red" }}>{error}</p>}
+                {message && <p style={{ color: "#0a6b2d" }}>{message}</p>}
 
-                {message && (
-                    <p style={{ color: "#0a6b2d" }}>
-                        {message}
-                    </p>
-                )}
-
-                <button type="submit" disabled={loading || !codeSent}>
-                    {loading ? t("registering") : t("register")}
+                <button type="submit" disabled={submitting || !codeSent}>
+                    {submitting ? t("resettingPassword") : t("resetPassword")}
                 </button>
             </form>
+
+            <p>
+                <Link href="/login">{t("backToLogin")}</Link>
+            </p>
         </main>
     );
 }

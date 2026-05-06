@@ -1,6 +1,15 @@
 "use client";
 
-import { clearCart, readCart, subscribeCart } from "@/lib/cart";
+import {
+    clearCart,
+    getServerCartSnapshot,
+    readCart,
+    subscribeCart,
+} from "@/lib/cart";
+import {
+    calculateDeliveryFeeCents,
+    type DeliveryPricingSetting,
+} from "@/lib/delivery-pricing";
 import {
     buildLocalDateTimeFromDateKey,
     formatMenuDate,
@@ -9,13 +18,20 @@ import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { CartIconLink } from "../CartIconLink";
 import { useLanguage } from "../LanguageProvider";
+
+const BOTH_DELIVERY_MODE = "BOTH" as DeliveryAddressMode;
 
 type CheckoutUserAddress = {
     id: number;
     fullAddress: string;
+    latitude: number;
+    longitude: number;
     isDefault: boolean;
 };
+
+type AddressSelectionType = "customer" | "site";
 
 type CheckoutClientProps = {
     deliveryMode: DeliveryAddressMode;
@@ -32,6 +48,7 @@ type CheckoutClientProps = {
         phone: string;
         addresses: CheckoutUserAddress[];
     } | null;
+    deliveryPricing: DeliveryPricingSetting;
 };
 
 function formatPrice(priceCents: number) {
@@ -64,10 +81,15 @@ export default function CheckoutClient({
     isLoggedIn,
     siteAddresses,
     userProfile,
+    deliveryPricing,
 }: CheckoutClientProps) {
     const { t } = useLanguage();
     const router = useRouter();
-    const cartItems = useSyncExternalStore(subscribeCart, readCart, () => []);
+    const cartItems = useSyncExternalStore(
+        subscribeCart,
+        readCart,
+        getServerCartSnapshot
+    );
 
     const subtotalCents = useMemo(() => {
         return cartItems.reduce(
@@ -83,7 +105,23 @@ export default function CheckoutClient({
     const [pickupMinute, setPickupMinute] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    const allowCustomerAddress =
+        deliveryMode === DeliveryAddressMode.SELF_ADDRESS ||
+        deliveryMode === BOTH_DELIVERY_MODE;
+    const allowSiteAddress =
+        deliveryMode === DeliveryAddressMode.SITE_ADDRESS ||
+        deliveryMode === BOTH_DELIVERY_MODE;
+    const [selectedAddressType, setSelectedAddressType] =
+        useState<AddressSelectionType>(() =>
+            deliveryMode === DeliveryAddressMode.SITE_ADDRESS
+                ? "site"
+                : "customer"
+        );
     const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
+        if (deliveryMode === DeliveryAddressMode.SITE_ADDRESS) {
+            return siteAddresses[0] ? String(siteAddresses[0].id) : "";
+        }
+
         const defaultAddress = userProfile?.addresses.find(
             (address) => address.isDefault
         );
@@ -100,18 +138,54 @@ export default function CheckoutClient({
     const cartHasSingleServiceDate =
         cartServiceDates.length === 1 &&
         cartItems.every((item) => item.serviceDate === cartServiceDates[0]);
-    const useSiteAddressMode = deliveryMode === DeliveryAddressMode.SITE_ADDRESS;
     const hasSavedAddress = Boolean(userProfile?.addresses.length);
     const hasSiteAddress = siteAddresses.length > 0;
     const hasPickupTime =
         !requirePickupTime ||
         (Boolean(cartServiceDate) && Boolean(pickupHour) && Boolean(pickupMinute));
+    const selectedSavedAddress =
+        selectedAddressType === "customer"
+            ? userProfile?.addresses.find(
+                  (address) => String(address.id) === selectedAddressId
+              ) || null
+            : null;
+    const deliveryFeeEstimate = useMemo(() => {
+        if (selectedAddressType !== "customer" || !selectedSavedAddress) {
+            return {
+                feeCents: 0,
+                distanceKm: 0,
+                error: "",
+            };
+        }
+
+        try {
+            return {
+                ...calculateDeliveryFeeCents(
+                    deliveryPricing,
+                    selectedSavedAddress.latitude,
+                    selectedSavedAddress.longitude
+                ),
+                error: "",
+            };
+        } catch (error) {
+            return {
+                feeCents: 0,
+                distanceKm: 0,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : t("deliveryFeeUnavailable"),
+            };
+        }
+    }, [deliveryPricing, selectedAddressType, selectedSavedAddress, t]);
+    const estimatedTotalCents =
+        subtotalCents + deliveryFeeEstimate.feeCents;
 
     const canSubmitOrder = isLoggedIn
         ? hasCartItems &&
           cartHasSingleServiceDate &&
           hasPickupTime &&
-          (useSiteAddressMode
+          (selectedAddressType === "site"
               ? hasSiteAddress && Boolean(selectedAddressId)
               : hasSavedAddress && Boolean(selectedAddressId))
         : hasCartItems &&
@@ -119,7 +193,7 @@ export default function CheckoutClient({
           hasPickupTime &&
           guestName.trim().length > 0 &&
           guestPhone.trim().length > 0 &&
-          (useSiteAddressMode
+          (selectedAddressType === "site"
               ? hasSiteAddress && Boolean(selectedAddressId)
               : guestAddress.trim().length > 0);
 
@@ -146,6 +220,7 @@ export default function CheckoutClient({
                 selectedAddressId: selectedAddressId
                     ? Number(selectedAddressId)
                     : null,
+                selectedAddressType,
                 deliveryMode,
                 guestName,
                 guestPhone,
@@ -173,6 +248,7 @@ export default function CheckoutClient({
 
     return (
         <div
+            className="responsive-two-column"
             style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)",
@@ -205,108 +281,124 @@ export default function CheckoutClient({
                             <strong>{t("phone")}:</strong> {userProfile.phone}
                         </p>
 
-                        <section>
-                            <h3>
-                                {useSiteAddressMode
-                                    ? t("selectSiteAddress")
-                                    : t("selectDeliveryAddress")}
-                            </h3>
+                        <section style={{ display: "grid", gap: 20 }}>
+                            {allowCustomerAddress && (
+                                <section>
+                                    <h3>{t("selectDeliveryAddress")}</h3>
 
-                            {useSiteAddressMode ? (
-                                siteAddresses.length === 0 ? (
-                                    <div>
-                                        <p style={{ color: "#666" }}>
-                                            {t("noSiteAddress")}
-                                        </p>
-                                        <p style={{ color: "#666" }}>
-                                            {t("askAdminSiteAddresses")}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: "grid", gap: 12 }}>
-                                        {siteAddresses.map((address) => (
-                                            <label
-                                                key={address.id}
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "flex-start",
-                                                    gap: 10,
-                                                    padding: 12,
-                                                    border: "1px solid #eee",
-                                                    borderRadius: 8,
-                                                }}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="site-address"
-                                                    value={address.id}
-                                                    checked={
-                                                        selectedAddressId ===
-                                                        String(address.id)
-                                                    }
-                                                    onChange={(event) =>
-                                                        setSelectedAddressId(
-                                                            event.target.value
-                                                        )
-                                                    }
-                                                />
+                                    {userProfile.addresses.length === 0 ? (
+                                        <div>
+                                            <p style={{ color: "#666" }}>
+                                                {t("noSavedAddressForAccount")}
+                                            </p>
+                                            <p style={{ color: "#666" }}>
+                                                {t("addAddressBeforeOrder")}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: "grid", gap: 12 }}>
+                                            {userProfile.addresses.map((address) => (
+                                                <label
+                                                    key={address.id}
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "flex-start",
+                                                        gap: 10,
+                                                        padding: 12,
+                                                        border: "1px solid #eee",
+                                                        borderRadius: 8,
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="address-selection"
+                                                        value={`customer:${address.id}`}
+                                                        checked={
+                                                            selectedAddressType ===
+                                                                "customer" &&
+                                                            selectedAddressId ===
+                                                                String(address.id)
+                                                        }
+                                                        onChange={() => {
+                                                            setSelectedAddressType(
+                                                                "customer"
+                                                            );
+                                                            setSelectedAddressId(
+                                                                String(address.id)
+                                                            );
+                                                        }}
+                                                    />
 
-                                                <span>
-                                                    <strong>{address.name}</strong>
-                                                    <br />
-                                                    {address.fullAddress}
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                )
-                            ) : userProfile.addresses.length === 0 ? (
-                                <div>
-                                    <p style={{ color: "#666" }}>
-                                        {t("noSavedAddressForAccount")}
-                                    </p>
-                                    <p style={{ color: "#666" }}>
-                                        {t("addAddressBeforeOrder")}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div style={{ display: "grid", gap: 12 }}>
-                                    {userProfile.addresses.map((address) => (
-                                        <label
-                                            key={address.id}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "flex-start",
-                                                gap: 10,
-                                                padding: 12,
-                                                border: "1px solid #eee",
-                                                borderRadius: 8,
-                                            }}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="saved-address"
-                                                value={address.id}
-                                                checked={
-                                                    selectedAddressId ===
-                                                    String(address.id)
-                                                }
-                                                onChange={(event) =>
-                                                    setSelectedAddressId(
-                                                        event.target.value
-                                                    )
-                                                }
-                                            />
+                                                    <span>
+                                                        {address.fullAddress}
+                                                        {address.isDefault
+                                                            ? ` (${t("default")})`
+                                                            : ""}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </section>
+                            )}
 
-                                            <span>
-                                                {address.fullAddress}
-                                                {address.isDefault
-                                                    ? ` (${t("default")})`
-                                                    : ""}
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
+                            {allowSiteAddress && (
+                                <section>
+                                    <h3>{t("selectSiteAddress")}</h3>
+
+                                    {siteAddresses.length === 0 ? (
+                                        <div>
+                                            <p style={{ color: "#666" }}>
+                                                {t("noSiteAddress")}
+                                            </p>
+                                            <p style={{ color: "#666" }}>
+                                                {t("askAdminSiteAddresses")}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: "grid", gap: 12 }}>
+                                            {siteAddresses.map((address) => (
+                                                <label
+                                                    key={address.id}
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "flex-start",
+                                                        gap: 10,
+                                                        padding: 12,
+                                                        border: "1px solid #eee",
+                                                        borderRadius: 8,
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="address-selection"
+                                                        value={`site:${address.id}`}
+                                                        checked={
+                                                            selectedAddressType ===
+                                                                "site" &&
+                                                            selectedAddressId ===
+                                                                String(address.id)
+                                                        }
+                                                        onChange={() => {
+                                                            setSelectedAddressType(
+                                                                "site"
+                                                            );
+                                                            setSelectedAddressId(
+                                                                String(address.id)
+                                                            );
+                                                        }}
+                                                    />
+
+                                                    <span>
+                                                        <strong>{address.name}</strong>
+                                                        <br />
+                                                        {address.fullAddress}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </section>
                             )}
                         </section>
                     </>
@@ -348,7 +440,7 @@ export default function CheckoutClient({
                             />
                         </div>
 
-                        {useSiteAddressMode ? (
+                        {allowSiteAddress && (
                             <div style={{ marginBottom: 16 }}>
                                 <label>{t("selectSiteAddress")}</label>
 
@@ -378,17 +470,22 @@ export default function CheckoutClient({
                                             >
                                                 <input
                                                     type="radio"
-                                                    name="guest-site-address"
+                                                    name="guest-address-selection"
                                                     value={address.id}
                                                     checked={
+                                                        selectedAddressType ===
+                                                            "site" &&
                                                         selectedAddressId ===
-                                                        String(address.id)
+                                                            String(address.id)
                                                     }
-                                                    onChange={(event) =>
+                                                    onChange={(event) => {
+                                                        setSelectedAddressType(
+                                                            "site"
+                                                        );
                                                         setSelectedAddressId(
                                                             event.target.value
-                                                        )
-                                                    }
+                                                        );
+                                                    }}
                                                 />
 
                                                 <span>
@@ -401,25 +498,57 @@ export default function CheckoutClient({
                                     </div>
                                 )}
                             </div>
-                        ) : (
+                        )}
+
+                        {allowCustomerAddress && (
                             <div style={{ marginBottom: 16 }}>
-                                <label htmlFor="guestAddress">{t("address")}</label>
-                                <textarea
-                                    id="guestAddress"
-                                    value={guestAddress}
-                                    onChange={(event) =>
-                                        setGuestAddress(event.target.value)
-                                    }
-                                    placeholder={t("deliveryAddress")}
-                                    rows={4}
-                                    style={{
-                                        display: "block",
-                                        width: "100%",
-                                        padding: 8,
-                                        marginTop: 4,
-                                        resize: "vertical",
-                                    }}
-                                />
+                                {allowSiteAddress && (
+                                    <label
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 10,
+                                            marginBottom: 8,
+                                        }}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="guest-address-selection"
+                                            checked={
+                                                selectedAddressType === "customer"
+                                            }
+                                            onChange={() => {
+                                                setSelectedAddressType("customer");
+                                                setSelectedAddressId("");
+                                            }}
+                                        />
+                                        {t("selectDeliveryAddress")}
+                                    </label>
+                                )}
+
+                                {selectedAddressType === "customer" && (
+                                    <>
+                                        <label htmlFor="guestAddress">
+                                            {t("address")}
+                                        </label>
+                                        <textarea
+                                            id="guestAddress"
+                                            value={guestAddress}
+                                            onChange={(event) =>
+                                                setGuestAddress(event.target.value)
+                                            }
+                                            placeholder={t("deliveryAddress")}
+                                            rows={4}
+                                            style={{
+                                                display: "block",
+                                                width: "100%",
+                                                padding: 8,
+                                                marginTop: 4,
+                                                resize: "vertical",
+                                            }}
+                                        />
+                                    </>
+                                )}
                             </div>
                         )}
                     </form>
@@ -644,12 +773,31 @@ export default function CheckoutClient({
                         >
                             <p
                                 style={{
+                                    margin: "0 0 8px",
+                                }}
+                            >
+                                {t("subtotal")} {formatPrice(subtotalCents)}
+                            </p>
+
+                            <p style={{ margin: "0 0 8px" }}>
+                                {t("deliveryFee")}{" "}
+                                {formatPrice(deliveryFeeEstimate.feeCents)}
+                            </p>
+
+                            {deliveryFeeEstimate.error && (
+                                <p style={{ color: "#b00020", margin: "0 0 8px" }}>
+                                    {deliveryFeeEstimate.error}
+                                </p>
+                            )}
+
+                            <p
+                                style={{
                                     margin: "0 0 12px",
                                     fontWeight: "bold",
                                     fontSize: 18,
                                 }}
                             >
-                                {t("subtotal")} {formatPrice(subtotalCents)}
+                                {t("total")} {formatPrice(estimatedTotalCents)}
                             </p>
 
                             <div
@@ -659,7 +807,10 @@ export default function CheckoutClient({
                                     flexWrap: "wrap",
                                 }}
                             >
-                                <Link href="/cart">{t("editCart")}</Link>
+                                <CartIconLink
+                                    ariaLabel={t("editCart")}
+                                    className="menu-action-button"
+                                />
                                 <Link href="/menu">{t("continueShoppingLower")}</Link>
                             </div>
                         </div>

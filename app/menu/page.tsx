@@ -9,6 +9,8 @@ import {
 } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { CartIconLink } from "../CartIconLink";
+import { FloatingCartButton } from "../FloatingCartButton";
 import { LanguageSwitcher } from "../LanguageSwitcher";
 
 function formatPrice(priceCents: number) {
@@ -71,43 +73,13 @@ export default async function MenuPage({
         ],
         include: {
             mainItem: true,
-            optionGroups: {
-                orderBy: [
-                    {
-                        sortOrder: "asc",
-                    },
-                    {
-                        id: "asc",
-                    },
-                ],
-                include: {
-                    optionGroup: {
-                        include: {
-                            options: {
-                                where: {
-                                    isAvailable: true,
-                                },
-                                orderBy: [
-                                    {
-                                        sortOrder: "asc",
-                                    },
-                                    {
-                                        id: "asc",
-                                    },
-                                ],
-                                include: {
-                                    subItem: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            },
         },
     });
 
     return (
         <main className="page-shell">
+            <FloatingCartButton />
+
             <section className="menu-user-bar">
                 {session?.user ? (
                     <>
@@ -126,9 +98,7 @@ export default async function MenuPage({
                                 </Link>
                             )}
                             <LanguageSwitcher />
-                            <Link className="menu-action-button" href="/cart">
-                                {t("cart")}
-                            </Link>
+                            <CartIconLink ariaLabel={t("cart")} />
                             <Link className="menu-action-button" href="/account">
                                 {t("account")}
                             </Link>
@@ -142,9 +112,7 @@ export default async function MenuPage({
 
                         <div className="menu-user-actions">
                             <LanguageSwitcher />
-                            <Link className="menu-action-button" href="/cart">
-                                {t("cart")}
-                            </Link>
+                            <CartIconLink ariaLabel={t("cart")} />
                             <Link className="menu-action-button" href="/login">
                                 {t("login")}
                             </Link>
@@ -211,6 +179,7 @@ export default async function MenuPage({
                     </p>
                 ) : (
                     <div
+                        className="menu-card-grid"
                         style={{
                             display: "grid",
                             gridTemplateColumns:
@@ -289,99 +258,6 @@ export default async function MenuPage({
                                     >
                                         {formatPrice(menuItem.mainItem.priceCents)}
                                     </p>
-
-                                    {menuItem.optionGroups.length === 0 ? (
-                                        <p style={{ color: "#666" }}>
-                                            {t("noExtraOptionsForItem")}
-                                        </p>
-                                    ) : (
-                                        <div>
-                                            <h4>{t("options")}</h4>
-
-                                            {menuItem.optionGroups.map((relation) => {
-                                                const group = relation.optionGroup;
-
-                                                return (
-                                                    <section
-                                                        key={relation.id}
-                                                        style={{
-                                                            marginTop: 12,
-                                                            paddingTop: 12,
-                                                            borderTop:
-                                                                "1px solid #eee",
-                                                        }}
-                                                    >
-                                                        <p
-                                                            style={{
-                                                                fontWeight: "bold",
-                                                                margin: "0 0 4px",
-                                                            }}
-                                                        >
-                                                            {group.name}
-                                                        </p>
-
-                                                        <p
-                                                            style={{
-                                                                color: "#666",
-                                                                margin: "0 0 8px",
-                                                            }}
-                                                        >
-                                                            {t("groupRules", {
-                                                                type: group.isRequired
-                                                                    ? t("required")
-                                                                    : t("optional"),
-                                                                min: group.minSelect,
-                                                                max: group.maxSelect,
-                                                            })}
-                                                        </p>
-
-                                                        {group.description && (
-                                                            <p
-                                                                style={{
-                                                                    color: "#666",
-                                                                    margin:
-                                                                        "0 0 8px",
-                                                                }}
-                                                            >
-                                                                {group.description}
-                                                            </p>
-                                                        )}
-
-                                                        {group.options.length === 0 ? (
-                                                            <p
-                                                                style={{
-                                                                    color: "#999",
-                                                                }}
-                                                            >
-                                                                {t("noOptionsInGroup")}
-                                                            </p>
-                                                        ) : (
-                                                            <ul>
-                                                                {group.options.map(
-                                                                    (option) => (
-                                                                        <li key={option.id}>
-                                                                            {
-                                                                                option
-                                                                                    .subItem
-                                                                                    .name
-                                                                            }{" "}
-                                                                            -{" "}
-                                                                            {formatPrice(
-                                                                                option.priceCents
-                                                                            )}
-                                                                            {option.isDefault
-                                                                                ? `, ${t("default")}`
-                                                                                : ""}
-                                                                        </li>
-                                                                    )
-                                                                )}
-                                                            </ul>
-                                                        )}
-                                                    </section>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
 
                                     <Link
                                         href={`/menu/${menuItem.id}`}

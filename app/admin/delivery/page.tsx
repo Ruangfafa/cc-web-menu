@@ -6,13 +6,24 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { LanguageSwitcher } from "../../LanguageSwitcher";
 import {
-    createSiteAddress,
-    deleteSiteAddress,
+    createDeliveryDistanceTier,
+    deleteDeliveryDistanceTier,
+    updateDeliveryDistanceTier,
     updateDeliveryMode,
+    updateDeliveryPricing,
     updatePickupTimeRequirement,
-    updateSiteAddress,
 } from "./actions";
-import { DeleteSiteAddressButton } from "./DeleteSiteAddressButton";
+import { CreateSiteAddressCard } from "./CreateSiteAddressCard";
+import { DeliveryOriginCard } from "./DeliveryOriginCard";
+import { SiteAddressCard } from "./SiteAddressCard";
+
+const BOTH_DELIVERY_MODE = "BOTH" as DeliveryAddressMode;
+const DELIVERY_PRICING_BASE_PLUS_DISTANCE = "BASE_PLUS_DISTANCE";
+const DELIVERY_PRICING_DISTANCE_TIERS = "DISTANCE_TIERS";
+
+function formatDollars(cents: number | null | undefined) {
+    return ((cents || 0) / 100).toFixed(2);
+}
 
 /**
  * 配送地址模式管理页
@@ -37,9 +48,14 @@ export default async function AdminDeliveryPage() {
         redirect("/menu");
     }
 
-    const deliverySetting = await prisma.deliverySetting.findUnique({
+    const deliverySetting = await (prisma as any).deliverySetting.findUnique({
         where: {
             id: 1,
+        },
+        include: {
+            distanceTiers: {
+                orderBy: [{ sortOrder: "asc" }, { minKm: "asc" }, { id: "asc" }],
+            },
         },
     });
     const siteAddresses = await prisma.siteAddress.findMany({
@@ -49,6 +65,9 @@ export default async function AdminDeliveryPage() {
     const currentMode =
         deliverySetting?.mode || DeliveryAddressMode.SELF_ADDRESS;
     const requirePickupTime = deliverySetting?.requirePickupTime || false;
+    const pricingMode =
+        deliverySetting?.pricingMode || DELIVERY_PRICING_BASE_PLUS_DISTANCE;
+    const distanceTiers = deliverySetting?.distanceTiers || [];
 
     return (
         <main className="page-shell">
@@ -116,10 +135,220 @@ export default async function AdminDeliveryPage() {
                         <p style={{ margin: 0, color: "#666" }}>
                             {t("siteAddressModeDesc")}
                         </p>
+
+                        <label>
+                            <input
+                                type="radio"
+                                name="mode"
+                                value={BOTH_DELIVERY_MODE}
+                                defaultChecked={
+                                    currentMode === BOTH_DELIVERY_MODE
+                                }
+                            />{" "}
+                            {t("useBothAddressModes")}
+                        </label>
+
+                        <p style={{ margin: 0, color: "#666" }}>
+                            {t("bothAddressModeDesc")}
+                        </p>
                     </div>
 
                     <button type="submit">{t("saveSettings")}</button>
                 </form>
+            </section>
+
+            <section
+                style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 10,
+                    padding: 20,
+                    background: "#fff",
+                    marginBottom: 24,
+                }}
+            >
+                <h2 style={{ marginTop: 0 }}>{t("deliveryOrigin")}</h2>
+
+                <DeliveryOriginCard
+                    originAddress={deliverySetting?.originAddress || ""}
+                />
+            </section>
+
+            <section
+                style={{
+                    border: "1px solid #ddd",
+                    borderRadius: 10,
+                    padding: 20,
+                    background: "#fff",
+                    marginBottom: 24,
+                }}
+            >
+                <h2 style={{ marginTop: 0 }}>{t("deliveryPricing")}</h2>
+
+                <form action={updateDeliveryPricing}>
+                    <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+                        <label>
+                            <input
+                                type="radio"
+                                name="pricingMode"
+                                value={DELIVERY_PRICING_BASE_PLUS_DISTANCE}
+                                defaultChecked={
+                                    pricingMode ===
+                                    DELIVERY_PRICING_BASE_PLUS_DISTANCE
+                                }
+                            />{" "}
+                            {t("basePlusDistancePricing")}
+                        </label>
+
+                        <label>
+                            <input
+                                type="radio"
+                                name="pricingMode"
+                                value={DELIVERY_PRICING_DISTANCE_TIERS}
+                                defaultChecked={
+                                    pricingMode === DELIVERY_PRICING_DISTANCE_TIERS
+                                }
+                            />{" "}
+                            {t("distanceTierPricing")}
+                        </label>
+                    </div>
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(auto-fit, minmax(180px, 1fr))",
+                            gap: 12,
+                            marginBottom: 16,
+                        }}
+                    >
+                        <label htmlFor="baseDeliveryFeeDollars">
+                            {t("baseDeliveryFee")}
+                            <input
+                                id="baseDeliveryFeeDollars"
+                                name="baseDeliveryFeeDollars"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={formatDollars(
+                                    deliverySetting?.baseDeliveryFeeCents
+                                )}
+                                style={{
+                                    display: "block",
+                                    width: "100%",
+                                    marginTop: 4,
+                                }}
+                            />
+                        </label>
+
+                        <label htmlFor="perKmDeliveryFeeDollars">
+                            {t("perKmDeliveryFee")}
+                            <input
+                                id="perKmDeliveryFeeDollars"
+                                name="perKmDeliveryFeeDollars"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={formatDollars(
+                                    deliverySetting?.perKmDeliveryFeeCents
+                                )}
+                                style={{
+                                    display: "block",
+                                    width: "100%",
+                                    marginTop: 4,
+                                }}
+                            />
+                        </label>
+                    </div>
+
+                    <button type="submit">{t("saveSettings")}</button>
+                </form>
+
+                <section style={{ marginTop: 24 }}>
+                    <h3>{t("distancePricingTiers")}</h3>
+
+                    <form
+                        action={createDeliveryDistanceTier}
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(auto-fit, minmax(130px, 1fr))",
+                            gap: 12,
+                            marginBottom: 16,
+                        }}
+                    >
+                        <label>
+                            {t("minKm")}
+                            <input name="minKm" type="number" min="0" step="0.1" required />
+                        </label>
+                        <label>
+                            {t("maxKm")}
+                            <input name="maxKm" type="number" min="0" step="0.1" />
+                        </label>
+                        <label>
+                            {t("deliveryFee")}
+                            <input name="feeDollars" type="number" min="0" step="0.01" required />
+                        </label>
+                        <label>
+                            {t("sortOrder")}
+                            <input name="sortOrder" type="number" defaultValue={0} required />
+                        </label>
+                        <button type="submit">{t("addTier")}</button>
+                    </form>
+
+                    {distanceTiers.length === 0 ? (
+                        <p style={{ color: "#666" }}>{t("noDistanceTiers")}</p>
+                    ) : (
+                        <div style={{ display: "grid", gap: 12 }}>
+                            {distanceTiers.map((tier: any) => (
+                                <article
+                                    key={tier.id}
+                                    style={{
+                                        border: "1px solid #eee",
+                                        borderRadius: 8,
+                                        padding: 12,
+                                    }}
+                                >
+                                    <form
+                                        action={updateDeliveryDistanceTier}
+                                        style={{
+                                            display: "grid",
+                                            gridTemplateColumns:
+                                                "repeat(auto-fit, minmax(130px, 1fr))",
+                                            gap: 12,
+                                        }}
+                                    >
+                                        <input type="hidden" name="tierId" value={tier.id} />
+                                        <label>
+                                            {t("minKm")}
+                                            <input name="minKm" type="number" min="0" step="0.1" defaultValue={tier.minKm} required />
+                                        </label>
+                                        <label>
+                                            {t("maxKm")}
+                                            <input name="maxKm" type="number" min="0" step="0.1" defaultValue={tier.maxKm ?? ""} />
+                                        </label>
+                                        <label>
+                                            {t("deliveryFee")}
+                                            <input name="feeDollars" type="number" min="0" step="0.01" defaultValue={formatDollars(tier.feeCents)} required />
+                                        </label>
+                                        <label>
+                                            {t("sortOrder")}
+                                            <input name="sortOrder" type="number" defaultValue={tier.sortOrder} required />
+                                        </label>
+                                        <button type="submit">{t("save")}</button>
+                                    </form>
+
+                                    <form
+                                        action={deleteDeliveryDistanceTier}
+                                        style={{ marginTop: 8 }}
+                                    >
+                                        <input type="hidden" name="tierId" value={tier.id} />
+                                        <button type="submit">{t("delete")}</button>
+                                    </form>
+                                </article>
+                            ))}
+                        </div>
+                    )}
+                </section>
             </section>
 
             <section
@@ -162,65 +391,7 @@ export default async function AdminDeliveryPage() {
             >
                 <h2 style={{ marginTop: 0 }}>{t("createSiteAddress")}</h2>
 
-                <form action={createSiteAddress}>
-                    <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="name">{t("siteAddressName")}</label>
-                        <input
-                            id="name"
-                            name="name"
-                            required
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                padding: 8,
-                                marginTop: 4,
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="fullAddress">{t("fullAddress")}</label>
-                        <textarea
-                            id="fullAddress"
-                            name="fullAddress"
-                            required
-                            rows={3}
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                padding: 8,
-                                marginTop: 4,
-                                resize: "vertical",
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: 16 }}>
-                        <label htmlFor="sortOrder">{t("sortOrder")}</label>
-                        <input
-                            id="sortOrder"
-                            name="sortOrder"
-                            type="number"
-                            defaultValue={0}
-                            required
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                padding: 8,
-                                marginTop: 4,
-                            }}
-                        />
-                    </div>
-
-                    <label>
-                        <input type="checkbox" name="isActive" defaultChecked />{" "}
-                        {t("active")}
-                    </label>
-
-                    <div style={{ marginTop: 16 }}>
-                        <button type="submit">{t("createSiteAddress")}</button>
-                    </div>
-                </form>
+                <CreateSiteAddressCard />
             </section>
 
             <section>
@@ -231,112 +402,10 @@ export default async function AdminDeliveryPage() {
                 ) : (
                     <div style={{ display: "grid", gap: 16 }}>
                         {siteAddresses.map((siteAddress) => (
-                            <article
+                            <SiteAddressCard
                                 key={siteAddress.id}
-                                style={{
-                                    border: "1px solid #ddd",
-                                    borderRadius: 10,
-                                    padding: 16,
-                                    background: "#fff",
-                                }}
-                            >
-                                <form action={updateSiteAddress}>
-                                    <input
-                                        type="hidden"
-                                        name="siteAddressId"
-                                        value={siteAddress.id}
-                                    />
-
-                                    <div style={{ marginBottom: 16 }}>
-                                        <label htmlFor={`name-${siteAddress.id}`}>
-                                            {t("siteAddressName")}
-                                        </label>
-                                        <input
-                                            id={`name-${siteAddress.id}`}
-                                            name="name"
-                                            defaultValue={siteAddress.name}
-                                            required
-                                            style={{
-                                                display: "block",
-                                                width: "100%",
-                                                padding: 8,
-                                                marginTop: 4,
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div style={{ marginBottom: 16 }}>
-                                        <label
-                                            htmlFor={`address-${siteAddress.id}`}
-                                        >
-                                            {t("fullAddress")}
-                                        </label>
-                                        <textarea
-                                            id={`address-${siteAddress.id}`}
-                                            name="fullAddress"
-                                            defaultValue={siteAddress.fullAddress}
-                                            required
-                                            rows={3}
-                                            style={{
-                                                display: "block",
-                                                width: "100%",
-                                                padding: 8,
-                                                marginTop: 4,
-                                                resize: "vertical",
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div style={{ marginBottom: 16 }}>
-                                        <label
-                                            htmlFor={`sortOrder-${siteAddress.id}`}
-                                        >
-                                            {t("sortOrder")}
-                                        </label>
-                                        <input
-                                            id={`sortOrder-${siteAddress.id}`}
-                                            name="sortOrder"
-                                            type="number"
-                                            defaultValue={siteAddress.sortOrder}
-                                            required
-                                            style={{
-                                                display: "block",
-                                                width: "100%",
-                                                padding: 8,
-                                                marginTop: 4,
-                                            }}
-                                        />
-                                    </div>
-
-                                    <label>
-                                        <input
-                                            type="checkbox"
-                                            name="isActive"
-                                            defaultChecked={siteAddress.isActive}
-                                        />{" "}
-                                        {t("active")}
-                                    </label>
-
-                                    <div style={{ marginTop: 16 }}>
-                                        <button type="submit">{t("save")}</button>
-                                    </div>
-                                </form>
-
-                                <form
-                                    action={deleteSiteAddress}
-                                    style={{ marginTop: 12 }}
-                                >
-                                    <input
-                                        type="hidden"
-                                        name="siteAddressId"
-                                        value={siteAddress.id}
-                                    />
-
-                                    <DeleteSiteAddressButton
-                                        siteAddressName={siteAddress.name}
-                                    />
-                                </form>
-                            </article>
+                                siteAddress={siteAddress}
+                            />
                         ))}
                     </div>
                 )}

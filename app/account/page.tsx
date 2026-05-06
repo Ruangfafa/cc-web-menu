@@ -5,19 +5,18 @@ import { formatMenuDate, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CartIconLink } from "../CartIconLink";
 import { LanguageSwitcher } from "../LanguageSwitcher";
+import { AddressAutocompleteInput } from "./AddressAutocompleteInput";
+import { SavedAddressCard } from "./SavedAddressCard";
 import {
     cancelOrder,
     createAddress,
-    deleteAddress,
-    setDefaultAddress,
     signOutAccount,
     updateAccountProfile,
-    updateAddress,
     updateOrderPickupTime,
 } from "./actions";
 import { CancelOrderButton } from "./CancelOrderButton";
-import { DeleteAddressButton } from "./DeleteAddressButton";
 
 function formatPrice(priceCents: number) {
     return `$${(priceCents / 100).toFixed(2)}`;
@@ -102,9 +101,7 @@ export default async function AccountPage({
                     <Link className="menu-action-button" href="/menu">
                         {t("backToMenu")}
                     </Link>
-                    <Link className="menu-action-button" href="/cart">
-                        {t("cart")}
-                    </Link>
+                    <CartIconLink ariaLabel={t("cart")} />
                     <form action={signOutAccount}>
                         <button className="menu-action-button" type="submit">
                             {t("signOut")}
@@ -175,6 +172,7 @@ export default async function AccountPage({
             )}
 
             <div
+                className="responsive-two-column"
                 style={{
                     display: "grid",
                     gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 0.8fr)",
@@ -274,19 +272,11 @@ export default async function AccountPage({
                     <form action={createAddress}>
                         <div style={{ marginBottom: 16 }}>
                             <label htmlFor="fullAddress">{t("address")}</label>
-                            <textarea
+                            <AddressAutocompleteInput
                                 id="fullAddress"
                                 name="fullAddress"
                                 required
-                                rows={4}
                                 placeholder={t("streetCityPostalCode")}
-                                style={{
-                                    display: "block",
-                                    width: "100%",
-                                    padding: 8,
-                                    marginTop: 4,
-                                    resize: "vertical",
-                                }}
                             />
                         </div>
 
@@ -316,89 +306,10 @@ export default async function AccountPage({
                 ) : (
                     <div style={{ display: "grid", gap: 12 }}>
                         {user.addresses.map((address) => (
-                            <article
+                            <SavedAddressCard
                                 key={address.id}
-                                style={{
-                                    border: "1px solid #ddd",
-                                    borderRadius: 8,
-                                    padding: 16,
-                                    background: "#fff",
-                                }}
-                            >
-                                <form action={updateAddress}>
-                                    <input
-                                        type="hidden"
-                                        name="addressId"
-                                        value={address.id}
-                                    />
-
-                                    <label htmlFor={`address-${address.id}`}>
-                                        {t("address")}
-                                    </label>
-                                    <textarea
-                                        id={`address-${address.id}`}
-                                        name="fullAddress"
-                                        defaultValue={address.fullAddress}
-                                        required
-                                        rows={3}
-                                        style={{
-                                            display: "block",
-                                            width: "100%",
-                                            padding: 8,
-                                            marginTop: 4,
-                                            resize: "vertical",
-                                        }}
-                                    />
-
-                                    {address.isDefault && (
-                                        <p style={{ color: "#666" }}>
-                                            {t("defaultAddress")}
-                                        </p>
-                                    )}
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            gap: 8,
-                                            marginTop: 12,
-                                            flexWrap: "wrap",
-                                        }}
-                                    >
-                                        <button type="submit">{t("saveAddress")}</button>
-                                    </div>
-                                </form>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        marginTop: 8,
-                                        flexWrap: "wrap",
-                                    }}
-                                >
-                                    {!address.isDefault && (
-                                        <form action={setDefaultAddress}>
-                                            <input
-                                                type="hidden"
-                                                name="addressId"
-                                                value={address.id}
-                                            />
-                                            <button type="submit">
-                                                {t("makeDefault")}
-                                            </button>
-                                        </form>
-                                    )}
-
-                                    <form action={deleteAddress}>
-                                        <input
-                                            type="hidden"
-                                            name="addressId"
-                                            value={address.id}
-                                        />
-                                        <DeleteAddressButton />
-                                    </form>
-                                </div>
-                            </article>
+                                address={address}
+                            />
                         ))}
                     </div>
                 )}

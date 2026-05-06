@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import type { CartItem } from "@/lib/cart";
+import { normalizeAddress } from "@/lib/address-normalization";
+import { calculateDeliveryFeeCents } from "@/lib/delivery-pricing";
 import {
     parseDateKey,
     todayDateKey,
@@ -13,6 +15,7 @@ import { NextResponse } from "next/server";
 type CheckoutRequestBody = {
     cartItems?: CartItem[];
     selectedAddressId?: number | null;
+    selectedAddressType?: "customer" | "site";
     deliveryMode?: DeliveryAddressMode;
     guestName?: string;
     guestPhone?: string;
@@ -53,13 +56,26 @@ export async function POST(request: Request) {
         const session = await auth();
         const body = (await request.json()) as CheckoutRequestBody;
         const cartItems = Array.isArray(body.cartItems) ? body.cartItems : [];
-        const deliverySetting = await prisma.deliverySetting.findUnique({
+        const deliverySetting = await (prisma as any).deliverySetting.findUnique({
             where: {
                 id: 1,
+            },
+            include: {
+                distanceTiers: {
+                    orderBy: [{ sortOrder: "asc" }, { minKm: "asc" }, { id: "asc" }],
+                },
             },
         });
         const deliveryMode =
             deliverySetting?.mode || DeliveryAddressMode.SELF_ADDRESS;
+        const selectedAddressType =
+            deliveryMode === DeliveryAddressMode.SITE_ADDRESS
+                ? "site"
+                : deliveryMode === DeliveryAddressMode.SELF_ADDRESS
+                  ? "customer"
+                  : body.selectedAddressType === "site"
+                    ? "site"
+                    : "customer";
         const requirePickupTime = deliverySetting?.requirePickupTime || false;
         const pickupTimeValue = body.pickupTime
             ? new Date(body.pickupTime)
@@ -263,14 +279,13 @@ export async function POST(request: Request) {
         let guestName: string | null = null;
         let guestPhone: string | null = null;
         let guestAddress: string | null = null;
+        let destinationLatitude: number | null = null;
+        let destinationLongitude: number | null = null;
         const selectedAddressId = body.selectedAddressId
             ? Number(body.selectedAddressId)
             : null;
 
-        if (
-            deliveryMode === DeliveryAddressMode.SITE_ADDRESS &&
-            !selectedAddressId
-        ) {
+        if (selectedAddressType === "site" && !selectedAddressId) {
             return NextResponse.json(
                 { error: "Please select a site address." },
                 { status: 400 }
@@ -299,7 +314,7 @@ export async function POST(request: Request) {
             guestName = user.name;
             guestPhone = user.phone;
 
-            if (deliveryMode === DeliveryAddressMode.SELF_ADDRESS) {
+            if (selectedAddressType === "customer") {
                 if (!selectedAddressId) {
                     return NextResponse.json(
                         { error: "Please select a delivery address." },
@@ -321,6 +336,8 @@ export async function POST(request: Request) {
                 }
 
                 guestAddress = selectedAddress.fullAddress;
+                destinationLatitude = selectedAddress.latitude;
+                destinationLongitude = selectedAddress.longitude;
             } else {
                 const siteAddress = await prisma.siteAddress.findFirst({
                     where: {
@@ -341,16 +358,16 @@ export async function POST(request: Request) {
         } else {
             guestName = String(body.guestName || "").trim();
             guestPhone = String(body.guestPhone || "").trim();
-            guestAddress =
-                deliveryMode === DeliveryAddressMode.SELF_ADDRESS
+            const guestSubmittedAddress =
+                selectedAddressType === "customer"
                     ? String(body.guestAddress || "").trim()
-                    : null;
+                    : "";
+            guestAddress = guestSubmittedAddress || null;
 
             if (
                 !guestName ||
                 !guestPhone ||
-                (deliveryMode === DeliveryAddressMode.SELF_ADDRESS &&
-                    !guestAddress)
+                (selectedAddressType === "customer" && !guestAddress)
             ) {
                 return NextResponse.json(
                     {
@@ -360,7 +377,7 @@ export async function POST(request: Request) {
                 );
             }
 
-            if (deliveryMode === DeliveryAddressMode.SITE_ADDRESS) {
+            if (selectedAddressType === "site") {
                 const siteAddress = await prisma.siteAddress.findFirst({
                     where: {
                         id: selectedAddressId || 0,
@@ -376,11 +393,61 @@ export async function POST(request: Request) {
                 }
 
                 guestAddress = siteAddress.fullAddress;
+            } else {
+                const normalizedGuestAddress = await normalizeAddress(
+                    guestSubmittedAddress
+                );
+
+                guestAddress = normalizedGuestAddress.fullAddress;
+                destinationLatitude = normalizedGuestAddress.latitude;
+                destinationLongitude = normalizedGuestAddress.longitude;
             }
         }
 
         const taxCents = 0;
-        const deliveryFeeCents = 0;
+
+        if (
+            selectedAddressType === "customer" &&
+            (typeof destinationLatitude !== "number" ||
+                typeof destinationLongitude !== "number")
+        ) {
+            return NextResponse.json(
+                { error: "Delivery address location is missing." },
+                { status: 400 }
+            );
+        }
+
+        let deliveryFeeCents = 0;
+
+        if (selectedAddressType === "customer") {
+            try {
+                deliveryFeeCents = calculateDeliveryFeeCents(
+                    {
+                        originLatitude: deliverySetting?.originLatitude ?? null,
+                        originLongitude: deliverySetting?.originLongitude ?? null,
+                        pricingMode:
+                            deliverySetting?.pricingMode || "BASE_PLUS_DISTANCE",
+                        baseDeliveryFeeCents:
+                            deliverySetting?.baseDeliveryFeeCents || 0,
+                        perKmDeliveryFeeCents:
+                            deliverySetting?.perKmDeliveryFeeCents || 0,
+                        distanceTiers: deliverySetting?.distanceTiers || [],
+                    },
+                    destinationLatitude,
+                    destinationLongitude
+                ).feeCents;
+            } catch (error) {
+                return NextResponse.json(
+                    {
+                        error:
+                            error instanceof Error
+                                ? error.message
+                                : "Failed to calculate delivery fee.",
+                    },
+                    { status: 400 }
+                );
+            }
+        }
         const totalCents = subtotalCents + taxCents + deliveryFeeCents;
 
         const order = await prisma.order.create({

@@ -4,6 +4,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { DeliveryAddressMode } from "@prisma/client";
 import Link from "next/link";
+import { CartIconLink } from "../CartIconLink";
 import { LanguageSwitcher } from "../LanguageSwitcher";
 import CheckoutClient from "./CheckoutClient";
 
@@ -30,6 +31,11 @@ export default async function CheckoutPage() {
         where: {
             id: 1,
         },
+        include: {
+            distanceTiers: {
+                orderBy: [{ sortOrder: "asc" }, { minKm: "asc" }, { id: "asc" }],
+            },
+        },
     });
     const siteAddresses = await prisma.siteAddress.findMany({
         where: {
@@ -48,6 +54,8 @@ export default async function CheckoutPage() {
         addresses: Array<{
             id: number;
             fullAddress: string;
+            latitude: number;
+            longitude: number;
             isDefault: boolean;
         }>;
     } | null = null;
@@ -79,6 +87,8 @@ export default async function CheckoutPage() {
                 addresses: user.addresses.map((address) => ({
                     id: address.id,
                     fullAddress: address.fullAddress,
+                    latitude: address.latitude,
+                    longitude: address.longitude,
                     isDefault: address.isDefault,
                 })),
             };
@@ -100,9 +110,7 @@ export default async function CheckoutPage() {
 
                 <div className="menu-user-actions">
                     <LanguageSwitcher />
-                    <Link className="menu-action-button" href="/cart">
-                        {t("backToCart")}
-                    </Link>
+                    <CartIconLink ariaLabel={t("backToCart")} />
                     <Link className="menu-action-button" href="/menu">
                         {t("backToMenu")}
                     </Link>
@@ -127,6 +135,22 @@ export default async function CheckoutPage() {
                     fullAddress: address.fullAddress,
                 }))}
                 userProfile={userProfile}
+                deliveryPricing={{
+                    originLatitude: deliverySetting?.originLatitude ?? null,
+                    originLongitude: deliverySetting?.originLongitude ?? null,
+                    pricingMode:
+                        deliverySetting?.pricingMode || "BASE_PLUS_DISTANCE",
+                    baseDeliveryFeeCents:
+                        deliverySetting?.baseDeliveryFeeCents || 0,
+                    perKmDeliveryFeeCents:
+                        deliverySetting?.perKmDeliveryFeeCents || 0,
+                    distanceTiers:
+                        deliverySetting?.distanceTiers.map((tier) => ({
+                            minKm: tier.minKm,
+                            maxKm: tier.maxKm,
+                            feeCents: tier.feeCents,
+                        })) || [],
+                }}
             />
         </main>
     );

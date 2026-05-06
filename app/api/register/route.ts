@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import {
+    hashVerificationCode,
+    normalizeEmail,
+    REGISTER_EMAIL_CODE_PURPOSE,
+} from "@/lib/email-verification";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -42,6 +47,7 @@ export async function POST(request: Request) {
         const password = body.password as string;
         const name = body.name as string;
         const phone = body.phone as string;
+        const verificationCode = String(body.verificationCode || "").trim();
 
         /**
          * 3. 检查必填字段
@@ -49,9 +55,12 @@ export async function POST(request: Request) {
          * 如果 必填字段 没有传，就返回 400。
          * 400 表示：前端请求的数据不完整。
          */
-        if (!email || !password || !name || !phone) {
+        if (!email || !password || !name || !phone || !verificationCode) {
             return NextResponse.json(
-                { error: "Email, password, name and phone are required" },
+                {
+                    error:
+                        "Email, password, name, phone and verification code are required",
+                },
                 { status: 400 }
             );
         }
@@ -63,7 +72,7 @@ export async function POST(request: Request) {
          * toLowerCase()：统一转成小写，避免：
          * Test@Email.com 和 test@email.com 被当成两个账号。
          */
-        const normalizedEmail = email.trim().toLowerCase();
+        const normalizedEmail = normalizeEmail(email);
 
         /**
          * 5. 检查邮箱格式
@@ -107,6 +116,31 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 { error: "Email is already registered" },
                 { status: 409 }
+            );
+        }
+
+        const verificationRecords = await prisma.$queryRaw<
+            Array<{ id: number; codeHash: string }>
+        >`
+            SELECT id, code_hash AS codeHash
+            FROM email_verification_codes
+            WHERE email = ${normalizedEmail}
+              AND purpose = ${REGISTER_EMAIL_CODE_PURPOSE}
+              AND used_at IS NULL
+              AND expires_at > ${new Date()}
+            ORDER BY created_at DESC
+            LIMIT 1
+        `;
+        const verificationRecord = verificationRecords[0];
+
+        if (
+            !verificationRecord ||
+            verificationRecord.codeHash !==
+                hashVerificationCode(normalizedEmail, verificationCode)
+        ) {
+            return NextResponse.json(
+                { error: "Invalid or expired verification code" },
+                { status: 400 }
             );
         }
 
@@ -154,6 +188,12 @@ export async function POST(request: Request) {
                 createdAt: true,
             },
         });
+
+        await prisma.$executeRaw`
+            UPDATE email_verification_codes
+            SET used_at = ${new Date()}
+            WHERE id = ${verificationRecord.id}
+        `;
 
         /**
          * 11. 注册成功

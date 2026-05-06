@@ -7,6 +7,8 @@
 export const CART_STORAGE_KEY = "cc-web-menu-cart";
 export const CART_STORAGE_EVENT = "cc-web-menu-cart-updated";
 
+const EMPTY_CART_SNAPSHOT: CartItem[] = [];
+
 /**
  * 缓存最近一次 localStorage 原始值和解析结果。
  *
@@ -15,7 +17,7 @@ export const CART_STORAGE_EVENT = "cc-web-menu-cart-updated";
  * 返回稳定引用，否则 React 会认为 store 一直在变化。
  */
 let lastCartRaw = "";
-let lastCartSnapshot: CartItem[] = [];
+let lastCartSnapshot: CartItem[] = EMPTY_CART_SNAPSHOT;
 
 /**
  * 购物车里的单个已选选项快照
@@ -57,15 +59,15 @@ export type CartItem = {
  */
 export function readCart(): CartItem[] {
     if (typeof window === "undefined") {
-        return [];
+        return EMPTY_CART_SNAPSHOT;
     }
 
     const rawCart = window.localStorage.getItem(CART_STORAGE_KEY);
 
     if (!rawCart) {
         lastCartRaw = "";
-        lastCartSnapshot = [];
-        return [];
+        lastCartSnapshot = EMPTY_CART_SNAPSHOT;
+        return EMPTY_CART_SNAPSHOT;
     }
 
     /**
@@ -79,7 +81,7 @@ export function readCart(): CartItem[] {
         const parsedCart = JSON.parse(rawCart);
         const nextSnapshot = Array.isArray(parsedCart)
             ? (parsedCart as CartItem[])
-            : [];
+            : EMPTY_CART_SNAPSHOT;
 
         lastCartRaw = rawCart;
         lastCartSnapshot = nextSnapshot;
@@ -87,9 +89,36 @@ export function readCart(): CartItem[] {
         return nextSnapshot;
     } catch {
         lastCartRaw = "";
-        lastCartSnapshot = [];
-        return [];
+        lastCartSnapshot = EMPTY_CART_SNAPSHOT;
+        return EMPTY_CART_SNAPSHOT;
     }
+}
+
+export function getServerCartSnapshot(): CartItem[] {
+    return EMPTY_CART_SNAPSHOT;
+}
+
+export function createCartItemId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+        const hex = Array.from(bytes, (byte) =>
+            byte.toString(16).padStart(2, "0")
+        );
+
+        return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+    }
+
+    return `${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
 }
 
 /**

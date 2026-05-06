@@ -10,6 +10,8 @@ import {
     toDateKey,
 } from "@/lib/menu-date";
 import { redirect } from "next/navigation";
+import { CartIconLink } from "../../CartIconLink";
+import { FloatingCartButton } from "../../FloatingCartButton";
 import { LanguageSwitcher } from "../../LanguageSwitcher";
 import MenuItemSelectionClient from "./MenuItemSelectionClient";
 
@@ -112,6 +114,8 @@ export default async function MenuItemPage({
 
     return (
         <main className="page-shell">
+            <FloatingCartButton />
+
             <section className="menu-user-bar">
                 {session?.user ? (
                     <>
@@ -136,9 +140,7 @@ export default async function MenuItemPage({
                             >
                                 {t("backToMenu")}
                             </Link>
-                            <Link className="menu-action-button" href="/cart">
-                                {t("cart")}
-                            </Link>
+                            <CartIconLink ariaLabel={t("cart")} />
                             <Link className="menu-action-button" href="/account">
                                 {t("account")}
                             </Link>
@@ -158,9 +160,7 @@ export default async function MenuItemPage({
                             >
                                 {t("backToMenu")}
                             </Link>
-                            <Link className="menu-action-button" href="/cart">
-                                {t("cart")}
-                            </Link>
+                            <CartIconLink ariaLabel={t("cart")} />
                             <Link className="menu-action-button" href="/login">
                                 {t("login")}
                             </Link>
@@ -197,6 +197,7 @@ export default async function MenuItemPage({
             <section style={{ marginBottom: 32 }}>
                 {menuItem.mainItem.imageUrl ? (
                     <img
+                        className="menu-detail-media"
                         src={menuItem.mainItem.imageUrl}
                         alt={displayName}
                         style={{
@@ -210,6 +211,7 @@ export default async function MenuItemPage({
                     />
                 ) : (
                     <div
+                        className="menu-detail-media"
                         style={{
                             width: "100%",
                             maxWidth: 520,

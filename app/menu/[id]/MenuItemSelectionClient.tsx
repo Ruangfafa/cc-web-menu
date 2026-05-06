@@ -1,6 +1,6 @@
 "use client";
 
-import { addCartItem, type CartItem } from "@/lib/cart";
+import { addCartItem, createCartItemId, type CartItem } from "@/lib/cart";
 import { useMemo, useState } from "react";
 import { useLanguage } from "../../LanguageProvider";
 
@@ -186,7 +186,7 @@ export default function MenuItemSelectionClient({
         const nameSnapshot = menuItem.displayName || menuItem.mainItem.name;
 
         const cartItem: CartItem = {
-            cartItemId: crypto.randomUUID(),
+            cartItemId: createCartItemId(),
             serviceDate,
             menuItemId: menuItem.id,
             mainItemId: menuItem.mainItem.id,

@@ -41,6 +41,7 @@ export function OrderStatusForm({
 
     return (
         <form
+            className="mobile-shrink"
             ref={formRef}
             action={updateOrderStatus}
             style={{

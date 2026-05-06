@@ -2,6 +2,7 @@
 
 import {
     clearCart,
+    getServerCartSnapshot,
     readCart,
     removeCartItem,
     subscribeCart,
@@ -32,7 +33,11 @@ function formatPrice(priceCents: number) {
  */
 export default function CartClient() {
     const { t } = useLanguage();
-    const cartItems = useSyncExternalStore(subscribeCart, readCart, () => []);
+    const cartItems = useSyncExternalStore(
+        subscribeCart,
+        readCart,
+        getServerCartSnapshot
+    );
 
     const subtotalCents = useMemo(() => {
         return cartItems.reduce(

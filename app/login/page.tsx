@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useLanguage } from "../LanguageProvider";
 
 /**
@@ -75,7 +76,7 @@ export default function LoginPage() {
     }
 
     return (
-        <main style={{ maxWidth: 400, margin: "80px auto", padding: 24 }}>
+        <main className="auth-shell">
             <h1>{t("login")}</h1>
 
             <form onSubmit={handleSubmit}>
@@ -131,6 +132,10 @@ export default function LoginPage() {
                     {loading ? t("loggingIn") : t("login")}
                 </button>
             </form>
+
+            <p>
+                <Link href="/forgot-password">{t("forgotPassword")}</Link>
+            </p>
         </main>
     );
 }

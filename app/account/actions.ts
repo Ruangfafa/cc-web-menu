@@ -1,6 +1,10 @@
 "use server";
 
 import { auth, signOut } from "@/auth";
+import {
+    getAddressByPlaceId,
+    normalizeAddress,
+} from "@/lib/address-normalization";
 import { buildLocalDateTimeFromDateKey, toDateKey } from "@/lib/menu-date";
 import { prisma } from "@/lib/prisma";
 import { OrderFulfillmentStatus } from "@prisma/client";
@@ -24,6 +28,24 @@ async function requireUser() {
     }
 
     return user;
+}
+
+async function resolveSubmittedAddress(formData: FormData) {
+    const fullAddress = String(formData.get("fullAddress") || "").trim();
+    const googlePlaceId = String(formData.get("googlePlaceId") || "").trim();
+    const googlePlacesSessionToken = String(
+        formData.get("googlePlacesSessionToken") || ""
+    ).trim();
+
+    if (!fullAddress) {
+        throw new Error("Address is required.");
+    }
+
+    if (googlePlaceId && googlePlacesSessionToken) {
+        return getAddressByPlaceId(googlePlaceId, googlePlacesSessionToken);
+    }
+
+    return normalizeAddress(fullAddress);
 }
 
 export async function updateAccountProfile(formData: FormData) {
@@ -54,11 +76,7 @@ export async function updateAccountProfile(formData: FormData) {
 export async function createAddress(formData: FormData) {
     const user = await requireUser();
 
-    const fullAddress = String(formData.get("fullAddress") || "").trim();
-
-    if (!fullAddress) {
-        throw new Error("Address is required.");
-    }
+    const normalizedAddress = await resolveSubmittedAddress(formData);
 
     await prisma.$transaction(async (tx) => {
         const existingAddressCount = await tx.address.count({
@@ -83,10 +101,10 @@ export async function createAddress(formData: FormData) {
         await tx.address.create({
             data: {
                 userId: user.id,
-                fullAddress,
-                googlePlaceId: `manual:${user.id}:${Date.now()}`,
-                latitude: 0,
-                longitude: 0,
+                fullAddress: normalizedAddress.fullAddress,
+                googlePlaceId: normalizedAddress.googlePlaceId,
+                latitude: normalizedAddress.latitude,
+                longitude: normalizedAddress.longitude,
                 isDefault,
             },
         });
@@ -99,15 +117,12 @@ export async function updateAddress(formData: FormData) {
     const user = await requireUser();
 
     const addressId = Number(formData.get("addressId"));
-    const fullAddress = String(formData.get("fullAddress") || "").trim();
 
     if (!Number.isInteger(addressId) || addressId <= 0) {
         throw new Error("Invalid address id.");
     }
 
-    if (!fullAddress) {
-        throw new Error("Address is required.");
-    }
+    const normalizedAddress = await resolveSubmittedAddress(formData);
 
     const result = await prisma.address.updateMany({
         where: {
@@ -115,7 +130,10 @@ export async function updateAddress(formData: FormData) {
             userId: user.id,
         },
         data: {
-            fullAddress,
+            fullAddress: normalizedAddress.fullAddress,
+            googlePlaceId: normalizedAddress.googlePlaceId,
+            latitude: normalizedAddress.latitude,
+            longitude: normalizedAddress.longitude,
         },
     });
 
